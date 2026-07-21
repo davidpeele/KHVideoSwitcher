@@ -106,6 +106,18 @@ public sealed class CameraCaptureService
         Interlocked.Exchange(ref _framesReceived, 0);
     }
 
+    /// <summary>Copies the most recent frame into a managed buffer (BGRA8, Width*Height*4 bytes).</summary>
+    public bool TryCopyLatestFrame(byte[] dest)
+    {
+        lock (_bufferLock)
+        {
+            if (_buffer.Length == 0 || dest.Length < _buffer.Length)
+                return false;
+            Buffer.BlockCopy(_buffer, 0, dest, 0, _buffer.Length);
+            return true;
+        }
+    }
+
     /// <summary>Copies the most recent frame into <paramref name="dest"/> (BGRA8, Width*Height*4 bytes).</summary>
     public bool TryCopyLatestFrame(IntPtr dest, int destSize)
     {

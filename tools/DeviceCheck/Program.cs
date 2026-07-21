@@ -23,6 +23,12 @@ if (args.Length > 0 && args[0].Equals("vcamtest", StringComparison.OrdinalIgnore
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("ptztest", StringComparison.OrdinalIgnoreCase))
+{
+    await RunPtzTestAsync(args.Length > 1 ? args[1] : ".");
+    return;
+}
+
 Console.WriteLine("=== KH Video Switcher — Device Check ===\n");
 
 Console.WriteLine("Video capture devices (Windows.Devices.Enumeration):");
@@ -69,6 +75,68 @@ foreach (var dev in monitorDevices)
 }
 
 Console.WriteLine("\nDevice check complete.");
+
+// PTZ compositor test: captures the webcam, renders three framings
+// (wide, 2x zoom left, mid-crossfade), and saves each as a PNG.
+static async Task RunPtzTestAsync(string outputDir)
+{
+    Console.WriteLine("=== KH Video Switcher — PTZ Compositor Test ===\n");
+
+    var cameras = await CameraCaptureService.ListCamerasAsync();
+    var physical = cameras.FirstOrDefault(c => c.Name.Contains("Logitech", StringComparison.OrdinalIgnoreCase));
+    if (physical is null)
+    {
+        Console.WriteLine("FAIL: physical camera not found.");
+        return;
+    }
+
+    var service = new CameraCaptureService();
+    var format = await service.StartAsync(physical);
+    Console.WriteLine($"Camera: {physical.Name} {format}");
+    await Task.Delay(1500);
+
+    var frame = new byte[service.Width * service.Height * 4];
+    if (!service.TryCopyLatestFrame(frame))
+    {
+        Console.WriteLine("FAIL: no frame.");
+        await service.StopAsync();
+        return;
+    }
+
+    using var compositor = new KHVideoSwitcher.Video.PtzCompositor();
+    var outBytes = new byte[KHVideoSwitcher.Video.PtzCompositor.OutBytes];
+    var wide = KHVideoSwitcher.Video.PtzState.FullFrame;
+    var zoomLeft = new KHVideoSwitcher.Video.PtzState(0.3, 0.5, 2.0);
+
+    async Task RenderAsync(string name, KHVideoSwitcher.Video.PtzState state, KHVideoSwitcher.Video.Transition? tr)
+    {
+        compositor.Compose(frame, service.Width, service.Height, state, tr);
+        var handle = System.Runtime.InteropServices.GCHandle.Alloc(outBytes, System.Runtime.InteropServices.GCHandleType.Pinned);
+        try
+        {
+            compositor.CopyOutputTo(handle.AddrOfPinnedObject(), outBytes.Length);
+        }
+        finally
+        {
+            handle.Free();
+        }
+        var path = Path.Combine(outputDir, name);
+        await SavePngAsync(outBytes, KHVideoSwitcher.Video.PtzCompositor.OutWidth,
+            KHVideoSwitcher.Video.PtzCompositor.OutHeight, path);
+        Console.WriteLine($"Saved {Path.GetFullPath(path)}");
+    }
+
+    await RenderAsync("ptz-wide.png", wide, null);
+    await RenderAsync("ptz-zoom-left.png", zoomLeft, null);
+
+    // A transition caught mid-fade: 60 ms duration sampled ~30 ms in (~50%).
+    var tr = new KHVideoSwitcher.Video.Transition(wide, zoomLeft, 60);
+    await Task.Delay(30);
+    await RenderAsync("ptz-midfade.png", wide, tr);
+
+    await service.StopAsync();
+    Console.WriteLine("\nPTZ test complete.");
+}
 
 // End-to-end virtual camera test:
 //   webcam -> CameraCaptureService -> SharedFrameChannel -> KH Video Switcher vcam

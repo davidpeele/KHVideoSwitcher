@@ -4,29 +4,119 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="KH Video Switcher" Height="720" Width="1100"
-        Background="#FF1E1E1E">
-    <Grid>
+        Title="KH Video Switcher" Height="800" Width="1400"
+        Background="#FF1E1E1E" PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Resources>
+        <Style TargetType="TextBlock" x:Key="PaneHeader">
+            <Setter Property="Foreground" Value="#FF888888"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="2,0,0,4"/>
+        </Style>
+        <Style TargetType="Button" x:Key="PresetButton">
+            <Setter Property="Width" Value="72"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="4,0"/>
+            <Setter Property="Background" Value="#FF333333"/>
+            <Setter Property="Foreground" Value="#FFBBBBBB"/>
+            <Setter Property="BorderBrush" Value="#FF555555"/>
+            <Setter Property="ToolTip" Value="Left-click: recall (fade) • Right-click: save current PREVIEW framing"/>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Orientation="Horizontal" Margin="10,8">
+        <!-- Toolbar -->
+        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
             <TextBlock Text="Camera:" Foreground="#FFCCCCCC" VerticalAlignment="Center"/>
-            <ComboBox x:Name="CameraCombo" Width="320" Margin="8,0,0,0" VerticalAlignment="Center"/>
+            <ComboBox x:Name="CameraCombo" Width="300" Margin="8,0,0,0" VerticalAlignment="Center"/>
             <Button x:Name="StartStopButton" Content="Start" Width="90" Margin="12,0,0,0"
                     Padding="0,4" Click="StartStopButton_Click" IsEnabled="False"/>
             <Button x:Name="VCamButton" Content="Virtual Camera: Off" Width="150" Margin="12,0,0,0"
                     Padding="0,4" Click="VCamButton_Click"/>
         </StackPanel>
 
-        <Border Grid.Row="1" Background="Black" Margin="10,0,10,0" CornerRadius="4">
-            <Image x:Name="PreviewImage" Stretch="Uniform"/>
-        </Border>
+        <!-- Preview / Program panes -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="12"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-        <TextBlock x:Name="StatusText" Grid.Row="2" Margin="10,6,10,8"
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Style="{StaticResource PaneHeader}">
+                    PREVIEW <Run Foreground="#FF4EC94E">— drag to pan, scroll to zoom</Run>
+                </TextBlock>
+                <Border Grid.Row="1" Background="Black" CornerRadius="4" BorderBrush="#FF2A6E2A" BorderThickness="2">
+                    <Grid x:Name="PreviewCell" ClipToBounds="True"
+                          MouseWheel="PreviewCell_MouseWheel"
+                          MouseLeftButtonDown="PreviewCell_MouseLeftButtonDown"
+                          MouseLeftButtonUp="PreviewCell_MouseLeftButtonUp"
+                          MouseMove="PreviewCell_MouseMove"
+                          Background="Transparent">
+                        <Image x:Name="PreviewImage" Stretch="Uniform"/>
+                        <Canvas x:Name="PreviewOverlay" IsHitTestVisible="False">
+                            <Rectangle x:Name="CropRectShape" Stroke="#FF4EC94E" StrokeThickness="2" Fill="#184EC94E"/>
+                        </Canvas>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Style="{StaticResource PaneHeader}">
+                    PROGRAM <Run Foreground="#FFD9534F">— live output</Run>
+                </TextBlock>
+                <Border Grid.Row="1" Background="Black" CornerRadius="4" BorderBrush="#FF8E2A2A" BorderThickness="2">
+                    <Image x:Name="ProgramImage" Stretch="Uniform"/>
+                </Border>
+            </Grid>
+        </Grid>
+
+        <!-- Transport + presets -->
+        <DockPanel Grid.Row="2" Margin="0,10,0,4" LastChildFill="False">
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                <Button x:Name="TakeButton" Content="TAKE  ⏎" Width="110" Height="40" FontWeight="Bold"
+                        Background="#FF7A1F1F" Foreground="White" BorderBrush="#FFA33" Click="TakeButton_Click"
+                        ToolTip="Crossfade PROGRAM to the PREVIEW framing (Enter)"/>
+                <Button x:Name="CutButton" Content="CUT" Width="70" Height="40" Margin="8,0,0,0"
+                        Background="#FF333333" Foreground="White" BorderBrush="#FF555555" Click="CutButton_Click"
+                        ToolTip="Instantly switch PROGRAM to the PREVIEW framing (Space)"/>
+                <Button x:Name="WideButton" Content="Wide" Width="70" Height="40" Margin="16,0,0,0"
+                        Background="#FF333333" Foreground="White" BorderBrush="#FF555555" Click="WideButton_Click"
+                        ToolTip="Set PREVIEW to the full wide shot (0)"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                <TextBlock Text="Presets:" Foreground="#FF888888" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                <Button x:Name="Preset1" Style="{StaticResource PresetButton}" Content="1" Tag="0"
+                        Click="Preset_Click" MouseRightButtonUp="Preset_RightClick"/>
+                <Button x:Name="Preset2" Style="{StaticResource PresetButton}" Content="2" Tag="1"
+                        Click="Preset_Click" MouseRightButtonUp="Preset_RightClick"/>
+                <Button x:Name="Preset3" Style="{StaticResource PresetButton}" Content="3" Tag="2"
+                        Click="Preset_Click" MouseRightButtonUp="Preset_RightClick"/>
+                <Button x:Name="Preset4" Style="{StaticResource PresetButton}" Content="4" Tag="3"
+                        Click="Preset_Click" MouseRightButtonUp="Preset_RightClick"/>
+                <Button x:Name="Preset5" Style="{StaticResource PresetButton}" Content="5" Tag="4"
+                        Click="Preset_Click" MouseRightButtonUp="Preset_RightClick"/>
+                <Button x:Name="Preset6" Style="{StaticResource PresetButton}" Content="6" Tag="5"
+                        Click="Preset_Click" MouseRightButtonUp="Preset_RightClick"/>
+            </StackPanel>
+        </DockPanel>
+
+        <TextBlock x:Name="StatusText" Grid.Row="3" Margin="0,6,0,0"
                    Foreground="#FF9CDCFE" FontFamily="Consolas" Text="Ready."/>
     </Grid>
 </Window>
