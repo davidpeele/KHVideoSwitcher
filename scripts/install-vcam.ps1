@@ -12,7 +12,8 @@ $comhost = Join-Path $installDir "KHVideoSwitcher.VCam.comhost.dll"
 
 if ($Uninstall) {
     if (Test-Path $comhost) {
-        & regsvr32 /s /u $comhost
+        $p = Start-Process regsvr32 -ArgumentList '/s','/u',"`"$comhost`"" -Wait -PassThru
+        if ($p.ExitCode -ne 0) { throw "regsvr32 /u failed with exit code $($p.ExitCode)" }
         Write-Host "Unregistered $comhost"
     }
     exit 0
@@ -25,6 +26,6 @@ if (-not (Test-Path (Join-Path $BuildOutput "KHVideoSwitcher.VCam.comhost.dll"))
 
 New-Item -ItemType Directory -Force $installDir | Out-Null
 Copy-Item "$BuildOutput\*" $installDir -Recurse -Force
-& regsvr32 /s $comhost
-if ($LASTEXITCODE -ne 0) { throw "regsvr32 failed with exit code $LASTEXITCODE" }
+$p = Start-Process regsvr32 -ArgumentList '/s',"`"$comhost`"" -Wait -PassThru
+if ($p.ExitCode -ne 0) { throw "regsvr32 failed with exit code $($p.ExitCode)" }
 Write-Host "Registered $comhost"

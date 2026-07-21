@@ -36,6 +36,7 @@ namespace KHVideoSwitcher.VCam
         private IComObject<ID2D1Bitmap>? _sharedBitmap;
         private int _sharedBitmapWidth;
         private int _sharedBitmapHeight;
+        private long _lastGoodFrameMs;
 
         public bool HasD3DManager => _texture != null;
         public ulong FrameCount => _frameCount;
@@ -155,7 +156,8 @@ namespace KHVideoSwitcher.VCam
 
             _renderTarget.BeginDraw();
 
-            var haveFrame = false;
+            // Pull the newest frame if one is available; on a missed read keep
+            // showing the previous frame rather than blinking to standby.
             if (_channel.TryOpen() &&
                 _channel.TryReadFrame(_sharedPixels, out var fw, out var fh, out var ageMs) &&
                 ageMs <= StaleFrameMs)
@@ -180,11 +182,16 @@ namespace KHVideoSwitcher.VCam
                 {
                     _sharedBitmap.Object.CopyFromMemory(0, (nint)p, (uint)(fw * 4)).ThrowOnError();
                 }
+                _lastGoodFrameMs = Environment.TickCount64;
+            }
 
+            var haveFrame = _sharedBitmap is not null &&
+                            Environment.TickCount64 - _lastGoodFrameMs <= StaleFrameMs;
+            if (haveFrame)
+            {
                 var dest = new D2D_RECT_F(0f, 0f, _width, _height);
-                _renderTarget.Object.DrawBitmap(_sharedBitmap.Object, (nint)(&dest), 1f,
+                _renderTarget.Object.DrawBitmap(_sharedBitmap!.Object, (nint)(&dest), 1f,
                     D2D1_BITMAP_INTERPOLATION_MODE.D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, 0);
-                haveFrame = true;
             }
 
             if (!haveFrame)

@@ -176,7 +176,8 @@ static async Task RunVCamEndToEndTestAsync(string outputPath)
         }
     };
     await Task.Delay(2000);
-    Console.WriteLine($"   Published {Interlocked.Read(ref published)} frames so far.");
+    Console.WriteLine($"   Published {Interlocked.Read(ref published)} frames so far. " +
+        $"(channel open: {channel.IsOpen}, openErr: {channel.LastOpenError}, createErr: {channel.LastCreateError})");
 
     Console.WriteLine("4. Opening the virtual camera as a consumer (like Zoom would)…");
     var refreshed = await CameraCaptureService.ListCamerasAsync();
@@ -192,9 +193,33 @@ static async Task RunVCamEndToEndTestAsync(string outputPath)
     var consumer = new CameraCaptureService();
     var vFormat = await consumer.StartAsync(virtualCam);
     Console.WriteLine($"   Consumer format: {vFormat}");
-    await Task.Delay(5000);
+
+    // Inspect every consumed frame for dark/blank content (the "glitch" symptom).
+    long inspected = 0, darkFrames = 0;
+    var inspectBuffer = new byte[consumer.Width * consumer.Height * 4];
+    consumer.FrameArrived += () =>
+    {
+        if (!consumer.TryCopyLatestFrame(inspectBuffer))
+            return;
+        long sum = 0;
+        for (var i = 0; i < inspectBuffer.Length; i += 4001)
+            sum += inspectBuffer[i];
+        var avg = sum / (inspectBuffer.Length / 4001.0);
+        Interlocked.Increment(ref inspected);
+        if (avg < 8) // near-black
+            Interlocked.Increment(ref darkFrames);
+    };
+
+    for (var i = 0; i < 10; i++)
+    {
+        await Task.Delay(1000);
+        Console.WriteLine($"   t+{i + 1}s  published: {Interlocked.Read(ref published)}  " +
+            $"open: {channel.IsOpen}  openErr: {channel.LastOpenError}  createErr: {channel.LastCreateError}");
+    }
     long consumed = consumer.FramesReceived;
-    Console.WriteLine($"   Frames from virtual camera: {consumed} (~{consumed / 5.0:0.#} fps); published: {Interlocked.Read(ref published)}");
+    Console.WriteLine($"   Frames from virtual camera: {consumed} (~{consumed / 10.0:0.#} fps); published: {Interlocked.Read(ref published)}");
+    Console.WriteLine($"   Inspected: {Interlocked.Read(ref inspected)}  dark/blank: {Interlocked.Read(ref darkFrames)}" +
+        (Interlocked.Read(ref darkFrames) == 0 ? "  — no glitch frames detected" : "  — GLITCH FRAMES PRESENT"));
 
     int size = consumer.Width * consumer.Height * 4;
     var pixels = new byte[size];
