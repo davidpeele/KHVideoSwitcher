@@ -41,35 +41,3 @@ public record struct PtzState(double CenterX, double CenterY, double Zoom)
             zoom);
     }
 }
-
-/// <summary>A crossfade in progress from one framing to another.</summary>
-public sealed class Transition(PtzState from, PtzState to, int durationMs)
-{
-    private readonly long _startMs = Environment.TickCount64;
-
-    public PtzState From { get; } = from;
-    public PtzState To { get; } = to;
-
-    public double Progress
-    {
-        get
-        {
-            if (durationMs <= 0)
-                return 1;
-            double t = (Environment.TickCount64 - _startMs) / (double)durationMs;
-            return Math.Clamp(t, 0, 1);
-        }
-    }
-
-    /// <summary>Smoothstep-eased opacity for the incoming shot.</summary>
-    public double EasedProgress
-    {
-        get
-        {
-            double t = Progress;
-            return t * t * (3 - 2 * t);
-        }
-    }
-
-    public bool IsDone => Progress >= 1;
-}

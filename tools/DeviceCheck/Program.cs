@@ -104,13 +104,37 @@ static async Task RunPtzTestAsync(string outputDir)
     }
 
     using var compositor = new KHVideoSwitcher.Video.PtzCompositor();
-    var outBytes = new byte[KHVideoSwitcher.Video.PtzCompositor.OutBytes];
-    var wide = KHVideoSwitcher.Video.PtzState.FullFrame;
-    var zoomLeft = new KHVideoSwitcher.Video.PtzState(0.3, 0.5, 2.0);
+    compositor.SetCameraFrame(frame, service.Width, service.Height);
 
-    async Task RenderAsync(string name, KHVideoSwitcher.Video.PtzState state, KHVideoSwitcher.Video.Transition? tr)
+    // Synthetic "media" frame: a blue-to-white gradient with a grid, so scene
+    // tests don't depend on JW Library running.
+    const int mediaW = 1280, mediaH = 720;
+    var media = new byte[mediaW * mediaH * 4];
+    for (var y = 0; y < mediaH; y++)
     {
-        compositor.Compose(frame, service.Width, service.Height, state, tr);
+        for (var x = 0; x < mediaW; x++)
+        {
+            int i = (y * mediaW + x) * 4;
+            bool grid = x % 80 < 2 || y % 80 < 2;
+            media[i] = (byte)(grid ? 255 : 200 * x / mediaW);      // B
+            media[i + 1] = (byte)(grid ? 255 : 80);                 // G
+            media[i + 2] = (byte)(grid ? 255 : 40 + 100 * y / mediaH); // R
+            media[i + 3] = 255;
+        }
+    }
+    compositor.SetMediaFrame(media, mediaW, mediaH);
+
+    var outBytes = new byte[KHVideoSwitcher.Video.PtzCompositor.OutBytes];
+    var wide = KHVideoSwitcher.Video.Scene.CameraWide;
+    var zoomLeft = new KHVideoSwitcher.Video.Scene(KHVideoSwitcher.Video.SceneKind.Camera,
+        new KHVideoSwitcher.Video.PtzState(0.3, 0.5, 2.0));
+    var mediaScene = new KHVideoSwitcher.Video.Scene(KHVideoSwitcher.Video.SceneKind.Media, KHVideoSwitcher.Video.PtzState.FullFrame);
+    var ots = new KHVideoSwitcher.Video.Scene(KHVideoSwitcher.Video.SceneKind.OverShoulder,
+        new KHVideoSwitcher.Video.PtzState(0.3, 0.5, 2.0));
+
+    async Task RenderAsync(string name, KHVideoSwitcher.Video.Scene scene, KHVideoSwitcher.Video.SceneTransition? tr)
+    {
+        compositor.RenderProgram(scene, tr);
         var handle = System.Runtime.InteropServices.GCHandle.Alloc(outBytes, System.Runtime.InteropServices.GCHandleType.Pinned);
         try
         {
@@ -128,9 +152,11 @@ static async Task RunPtzTestAsync(string outputDir)
 
     await RenderAsync("ptz-wide.png", wide, null);
     await RenderAsync("ptz-zoom-left.png", zoomLeft, null);
+    await RenderAsync("scene-media.png", mediaScene, null);
+    await RenderAsync("scene-ots.png", ots, null);
 
     // A transition caught mid-fade: 60 ms duration sampled ~30 ms in (~50%).
-    var tr = new KHVideoSwitcher.Video.Transition(wide, zoomLeft, 60);
+    var tr = new KHVideoSwitcher.Video.SceneTransition(wide, ots, 60);
     await Task.Delay(30);
     await RenderAsync("ptz-midfade.png", wide, tr);
 

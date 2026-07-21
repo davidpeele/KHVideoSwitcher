@@ -12,24 +12,31 @@ namespace KHVideoSwitcher;
 
 public partial class MainWindow : Window
 {
+    private const long MediaStaleMs = 1500;
+
     private readonly CameraCaptureService _camera = new();
+    private readonly DisplayCaptureService _display = new();
     private readonly VirtualCameraController _vcam = new();
     private readonly SharedFrameChannel _vcamChannel = new();
     private readonly PtzCompositor _compositor = new();
     private readonly AppSettings _settings = AppSettings.Load();
     private readonly DispatcherTimer _statusTimer;
 
-    private WriteableBitmap? _previewBitmap;   // raw wide shot
-    private WriteableBitmap? _programBitmap;   // 1920x1080 program output
+    private WriteableBitmap? _previewBitmap;       // raw wide shot (Camera preview)
+    private WriteableBitmap? _scenePreviewBitmap;  // rendered scene preview (Media/OTS)
+    private WriteableBitmap? _programBitmap;       // 1920x1080 program output
     private byte[] _sourceFrame = Array.Empty<byte>();
+    private byte[] _mediaFrame = Array.Empty<byte>();
     private int _renderPending;
     private long _lastFrameCount;
     private volatile bool _vcamOn;
 
-    // PTZ state. _preview is edited by the operator; _program is what viewers see.
+    // Switcher state. Preview (scene kind + PTZ framing) is edited by the
+    // operator; the program scene is what viewers see.
     private PtzState _previewState = PtzState.FullFrame;
-    private PtzState _programState = PtzState.FullFrame;
-    private Transition? _transition;
+    private volatile SceneKind _previewKind = SceneKind.Camera;
+    private Scene _programScene = Scene.CameraWide;
+    private SceneTransition? _transition;
     private readonly object _ptzLock = new();
 
     private bool _dragging;
@@ -64,6 +71,8 @@ public partial class MainWindow : Window
             {
                 StatusText.Text = "No cameras found.";
             }
+            RefreshMediaTargets();
+            UpdateSceneButtons();
         }
         catch (Exception ex)
         {
@@ -85,27 +94,60 @@ public partial class MainWindow : Window
         if (!_camera.TryCopyLatestFrame(_sourceFrame))
             return;
 
-        PtzState program;
-        Transition? transition;
+        _compositor.SetCameraFrame(_sourceFrame, w, h);
+
+        // Pull the newest media frame if capture is running and fresh.
+        if (_display.IsRunning)
+        {
+            try
+            {
+                _display.PumpFrames();
+            }
+            catch
+            {
+                // Window closed mid-capture etc.; stale handling below covers it.
+            }
+            if (_display.LastFrameAgeMs <= MediaStaleMs &&
+                _display.TryCopyLatestFrame(ref _mediaFrame, out var mw, out var mh))
+            {
+                _compositor.SetMediaFrame(_mediaFrame, mw, mh);
+            }
+            else if (_display.LastFrameAgeMs > MediaStaleMs)
+            {
+                _compositor.ClearMedia();
+            }
+        }
+        else
+        {
+            _compositor.ClearMedia();
+        }
+
+        Scene program;
+        SceneTransition? transition;
         lock (_ptzLock)
         {
-            // Finish a completed transition: the incoming shot becomes program.
+            // Finish a completed transition: the incoming scene becomes program.
             if (_transition is { IsDone: true } done)
             {
-                _programState = done.To;
+                _programScene = done.To;
                 _transition = null;
             }
-            program = _programState;
+            program = _programScene;
             transition = _transition;
         }
 
-        _compositor.Compose(_sourceFrame, w, h, program, transition);
+        _compositor.RenderProgram(program, transition);
 
         if (_vcamOn && _vcamChannel.TryOpen())
         {
             _vcamChannel.WriteFrame(PtzCompositor.OutWidth, PtzCompositor.OutHeight, PtzCompositor.OutWidth * 4,
                 dest => _compositor.CopyOutputTo(dest, PtzCompositor.OutBytes));
         }
+
+        // Media/OTS preview needs a rendered frame; Camera preview shows the raw wide shot.
+        var previewKind = _previewKind;
+        if (previewKind != SceneKind.Camera)
+            _compositor.RenderPreview(new Scene(previewKind, _previewState));
 
         // Coalesce UI renders: drop the notification if one is already queued.
         if (Interlocked.CompareExchange(ref _renderPending, 1, 0) != 0)
@@ -115,7 +157,10 @@ public partial class MainWindow : Window
         {
             try
             {
-                RenderPane(_previewBitmap, bmp => _camera.TryCopyLatestFrame(bmp.BackBuffer, bmp.BackBufferStride * bmp.PixelHeight));
+                if (_previewKind == SceneKind.Camera)
+                    RenderPane(_previewBitmap, bmp => _camera.TryCopyLatestFrame(bmp.BackBuffer, bmp.BackBufferStride * bmp.PixelHeight));
+                else
+                    RenderPane(_scenePreviewBitmap, bmp => _compositor.CopyPreviewTo(bmp.BackBuffer, bmp.BackBufferStride * bmp.PixelHeight));
                 RenderPane(_programBitmap, bmp => _compositor.CopyOutputTo(bmp.BackBuffer, bmp.BackBufferStride * bmp.PixelHeight));
             }
             finally
@@ -161,8 +206,9 @@ public partial class MainWindow : Window
                 StatusText.Text = $"Starting {cam.Name}…";
                 var format = await _camera.StartAsync(cam);
                 _previewBitmap = new WriteableBitmap(_camera.Width, _camera.Height, 96, 96, PixelFormats.Bgra32, null);
+                _scenePreviewBitmap = new WriteableBitmap(PtzCompositor.OutWidth, PtzCompositor.OutHeight, 96, 96, PixelFormats.Bgra32, null);
                 _programBitmap = new WriteableBitmap(PtzCompositor.OutWidth, PtzCompositor.OutHeight, 96, 96, PixelFormats.Bgra32, null);
-                PreviewImage.Source = _previewBitmap;
+                ApplyPreviewPaneSource();
                 ProgramImage.Source = _programBitmap;
                 _lastFrameCount = 0;
                 _statusTimer.Start();
@@ -217,6 +263,49 @@ public partial class MainWindow : Window
         }
     }
 
+    // ---------- media capture ----------
+
+    private void MediaCombo_DropDownOpened(object? sender, EventArgs e) => RefreshMediaTargets();
+
+    private void RefreshMediaTargets()
+    {
+        var selectedName = (MediaCombo.SelectedItem as CaptureTarget)?.Name;
+        var targets = DisplayCaptureService.ListTargets();
+        MediaCombo.ItemsSource = targets;
+        MediaCombo.SelectedItem =
+            targets.FirstOrDefault(t => t.Name == selectedName)
+            ?? DisplayCaptureService.FindJwLibraryMediaTarget(targets)
+            ?? targets.FirstOrDefault(t => t.IsMonitor && !Equals(t, targets.FirstOrDefault(m => m.IsMonitor))); // second monitor
+    }
+
+    private void MediaCaptureButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (_display.IsRunning)
+            {
+                _display.Stop();
+                MediaCaptureButton.Content = "Capture";
+                MediaCombo.IsEnabled = true;
+            }
+            else if (MediaCombo.SelectedItem is CaptureTarget target)
+            {
+                _display.Start(target);
+                MediaCaptureButton.Content = "Capturing…";
+                MediaCombo.IsEnabled = false;
+                StatusText.Text = $"Capturing: {target.Name}";
+            }
+            else
+            {
+                StatusText.Text = "Pick a media window or display first (open the Media dropdown).";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Media capture failed: {ex.Message}";
+        }
+    }
+
     // ---------- transport ----------
 
     private void TakeButton_Click(object sender, RoutedEventArgs e) => Take(_settings.FadeMs);
@@ -226,28 +315,68 @@ public partial class MainWindow : Window
     {
         lock (_ptzLock)
         {
-            var target = _previewState.Clamped();
+            var target = new Scene(_previewKind, _previewState.Clamped());
             if (_transition is not null)
             {
                 // Land the in-flight transition first, then fade from there.
-                _programState = _transition.To;
+                _programScene = _transition.To;
                 _transition = null;
             }
-            if (fadeMs <= 0 || target.Equals(_programState))
+            if (fadeMs <= 0 || target.Equals(_programScene))
             {
-                _programState = target;
+                _programScene = target;
             }
             else
             {
-                _transition = new Transition(_programState, target, fadeMs);
+                _transition = new SceneTransition(_programScene, target, fadeMs);
             }
         }
+    }
+
+    // ---------- scenes ----------
+
+    private void SceneButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string tag } && Enum.TryParse<SceneKind>(tag, out var kind))
+            SetPreviewScene(kind);
+    }
+
+    private void SetPreviewScene(SceneKind kind)
+    {
+        _previewKind = kind;
+        ApplyPreviewPaneSource();
+        UpdateSceneButtons();
+        if (kind != SceneKind.Camera && !_display.IsRunning)
+            StatusText.Text = "Note: media capture is not running — media scenes show a placeholder.";
+    }
+
+    private void ApplyPreviewPaneSource()
+    {
+        if (_previewKind == SceneKind.Camera)
+        {
+            PreviewImage.Source = _previewBitmap;
+            UpdateCropOverlay();
+        }
+        else
+        {
+            PreviewImage.Source = _scenePreviewBitmap;
+            CropRectShape.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void UpdateSceneButtons()
+    {
+        var active = new SolidColorBrush(Color.FromRgb(0x2A, 0x5E, 0x2A));
+        var idle = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33));
+        SceneCamButton.Background = _previewKind == SceneKind.Camera ? active : idle;
+        SceneMediaButton.Background = _previewKind == SceneKind.Media ? active : idle;
+        SceneOtsButton.Background = _previewKind == SceneKind.OverShoulder ? active : idle;
     }
 
     private void WideButton_Click(object sender, RoutedEventArgs e)
     {
         _previewState = PtzState.FullFrame;
-        UpdateCropOverlay();
+        SetPreviewScene(SceneKind.Camera);
     }
 
     // ---------- presets ----------
@@ -278,6 +407,7 @@ public partial class MainWindow : Window
             return;
         }
         _previewState = preset;
+        SetPreviewScene(SceneKind.Camera);
         UpdateCropOverlay();
         Take(_settings.FadeMs);
     }
@@ -312,7 +442,20 @@ public partial class MainWindow : Window
                 break;
             case Key.D0 or Key.NumPad0:
                 _previewState = PtzState.FullFrame;
+                SetPreviewScene(SceneKind.Camera);
                 UpdateCropOverlay();
+                e.Handled = true;
+                break;
+            case Key.F1:
+                SetPreviewScene(SceneKind.Camera);
+                e.Handled = true;
+                break;
+            case Key.F2:
+                SetPreviewScene(SceneKind.Media);
+                e.Handled = true;
+                break;
+            case Key.F3:
+                SetPreviewScene(SceneKind.OverShoulder);
                 e.Handled = true;
                 break;
             case >= Key.D1 and <= Key.D6:
@@ -358,7 +501,7 @@ public partial class MainWindow : Window
     private void UpdateCropOverlay()
     {
         var view = GetDisplayedImageRect();
-        if (view.IsEmpty)
+        if (view.IsEmpty || _previewKind != SceneKind.Camera)
         {
             CropRectShape.Visibility = Visibility.Collapsed;
             return;
@@ -428,9 +571,16 @@ public partial class MainWindow : Window
         _lastFrameCount = total;
         if (_camera.IsRunning && _camera.ActiveFormat is { } fmt)
         {
-            var pvZoom = _previewState.Zoom;
-            var pgZoom = _programState.Zoom;
-            StatusText.Text = $"{fmt}   |   live: {fps} fps   |   preview zoom: {pvZoom:0.0}x   |   program zoom: {pgZoom:0.0}x" +
+            Scene program;
+            lock (_ptzLock)
+            {
+                program = _programScene;
+            }
+            var media = !_display.IsRunning ? "off"
+                : _display.LastFrameAgeMs > MediaStaleMs ? "stale"
+                : $"{_display.Width}x{_display.Height}";
+            StatusText.Text = $"{fmt}   |   live: {fps} fps   |   program: {program.Kind} {program.Ptz.Zoom:0.0}x" +
+                              $"   |   media: {media}" +
                               (_vcamOn ? "   |   virtual camera: ON" : "");
         }
     }
@@ -441,8 +591,9 @@ public partial class MainWindow : Window
         _vcamOn = false;
         _vcam.Dispose();
         _vcamChannel.Dispose();
-        _compositor.Dispose();
         await _camera.StopAsync();
+        _display.Dispose();
+        _compositor.Dispose();
         base.OnClosed(e);
     }
 }

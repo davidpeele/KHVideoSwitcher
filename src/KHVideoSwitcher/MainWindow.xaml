@@ -39,6 +39,11 @@
                     Padding="0,4" Click="StartStopButton_Click" IsEnabled="False"/>
             <Button x:Name="VCamButton" Content="Virtual Camera: Off" Width="150" Margin="12,0,0,0"
                     Padding="0,4" Click="VCamButton_Click"/>
+            <TextBlock Text="Media:" Foreground="#FFCCCCCC" VerticalAlignment="Center" Margin="24,0,0,0"/>
+            <ComboBox x:Name="MediaCombo" Width="300" Margin="8,0,0,0" VerticalAlignment="Center"
+                      DropDownOpened="MediaCombo_DropDownOpened"/>
+            <Button x:Name="MediaCaptureButton" Content="Capture" Width="90" Margin="12,0,0,0"
+                    Padding="0,4" Click="MediaCaptureButton_Click"/>
         </StackPanel>
 
         <!-- Preview / Program panes -->
@@ -91,10 +96,20 @@
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
                 <Button x:Name="TakeButton" Content="TAKE  ⏎" Width="110" Height="40" FontWeight="Bold"
                         Background="#FF7A1F1F" Foreground="White" BorderBrush="#FFAA3333" Click="TakeButton_Click"
-                        ToolTip="Crossfade PROGRAM to the PREVIEW framing (Enter)"/>
+                        ToolTip="Crossfade PROGRAM to the PREVIEW scene (Enter)"/>
                 <Button x:Name="CutButton" Content="CUT" Width="70" Height="40" Margin="8,0,0,0"
                         Background="#FF333333" Foreground="White" BorderBrush="#FF555555" Click="CutButton_Click"
-                        ToolTip="Instantly switch PROGRAM to the PREVIEW framing (Space)"/>
+                        ToolTip="Instantly switch PROGRAM to the PREVIEW scene (Space)"/>
+                <TextBlock Text="Scene:" Foreground="#FF888888" VerticalAlignment="Center" Margin="20,0,6,0"/>
+                <Button x:Name="SceneCamButton" Content="CAM" Width="70" Height="40"
+                        Background="#FF2A5E2A" Foreground="White" BorderBrush="#FF555555" Click="SceneButton_Click" Tag="Camera"
+                        ToolTip="PREVIEW: PTZ camera (F1)"/>
+                <Button x:Name="SceneMediaButton" Content="MEDIA" Width="70" Height="40" Margin="6,0,0,0"
+                        Background="#FF333333" Foreground="White" BorderBrush="#FF555555" Click="SceneButton_Click" Tag="Media"
+                        ToolTip="PREVIEW: fullscreen media (F2)"/>
+                <Button x:Name="SceneOtsButton" Content="OTS" Width="70" Height="40" Margin="6,0,0,0"
+                        Background="#FF333333" Foreground="White" BorderBrush="#FF555555" Click="SceneButton_Click" Tag="OverShoulder"
+                        ToolTip="PREVIEW: media with camera inset, over-the-shoulder (F3)"/>
                 <Button x:Name="WideButton" Content="Wide" Width="70" Height="40" Margin="16,0,0,0"
                         Background="#FF333333" Foreground="White" BorderBrush="#FF555555" Click="WideButton_Click"
                         ToolTip="Set PREVIEW to the full wide shot (0)"/>
