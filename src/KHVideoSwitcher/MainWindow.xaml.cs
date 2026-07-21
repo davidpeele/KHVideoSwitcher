@@ -73,6 +73,7 @@ public partial class MainWindow : Window
             }
             RefreshMediaTargets();
             UpdateSceneButtons();
+            UpdateAutoTakeButton();
         }
         catch (Exception ex)
         {
@@ -311,7 +312,10 @@ public partial class MainWindow : Window
             var target = new Scene(_previewKind, _previewState.Clamped());
             if (_transition is not null)
             {
-                // Land the in-flight transition first, then fade from there.
+                // Already fading to this exact scene: let that fade finish.
+                if (_transition.To.Equals(target))
+                    return;
+                // Otherwise land the in-flight transition and fade from there.
                 _programScene = _transition.To;
                 _transition = null;
             }
@@ -326,12 +330,37 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>In Auto-Take mode, scene selection goes straight to Program.</summary>
+    private void TakeIfAuto()
+    {
+        if (_settings.AutoTakeScenes && _camera.IsRunning)
+            Take(_settings.FadeMs);
+    }
+
+    private void AutoTakeButton_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.AutoTakeScenes = !_settings.AutoTakeScenes;
+        _settings.Save();
+        UpdateAutoTakeButton();
+    }
+
+    private void UpdateAutoTakeButton()
+    {
+        AutoTakeButton.Content = _settings.AutoTakeScenes ? "Auto-Take: ON" : "Auto-Take: Off";
+        AutoTakeButton.Background = new SolidColorBrush(_settings.AutoTakeScenes
+            ? Color.FromRgb(0x7A, 0x5A, 0x1F)
+            : Color.FromRgb(0x33, 0x33, 0x33));
+    }
+
     // ---------- scenes ----------
 
     private void SceneButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: string tag } && Enum.TryParse<SceneKind>(tag, out var kind))
+        {
             SetPreviewScene(kind);
+            TakeIfAuto();
+        }
     }
 
     private void SetPreviewScene(SceneKind kind)
@@ -370,6 +399,7 @@ public partial class MainWindow : Window
     {
         _previewState = PtzState.FullFrame;
         SetPreviewScene(SceneKind.Camera);
+        TakeIfAuto();
     }
 
     // ---------- presets ----------
@@ -437,18 +467,26 @@ public partial class MainWindow : Window
                 _previewState = PtzState.FullFrame;
                 SetPreviewScene(SceneKind.Camera);
                 UpdateCropOverlay();
+                TakeIfAuto();
                 e.Handled = true;
                 break;
             case Key.F1:
                 SetPreviewScene(SceneKind.Camera);
+                TakeIfAuto();
                 e.Handled = true;
                 break;
             case Key.F2:
                 SetPreviewScene(SceneKind.Media);
+                TakeIfAuto();
                 e.Handled = true;
                 break;
             case Key.F3:
                 SetPreviewScene(SceneKind.OverShoulder);
+                TakeIfAuto();
+                e.Handled = true;
+                break;
+            case Key.A:
+                AutoTakeButton_Click(this, new RoutedEventArgs());
                 e.Handled = true;
                 break;
             case >= Key.D1 and <= Key.D6:

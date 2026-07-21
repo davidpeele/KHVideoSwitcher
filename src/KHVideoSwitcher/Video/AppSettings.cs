@@ -10,6 +10,9 @@ public sealed class AppSettings
     public PtzState?[] Presets { get; set; } = new PtzState?[PresetCount];
     public int FadeMs { get; set; } = 300;
 
+    /// <summary>When true, selecting a scene (buttons/F-keys) takes it immediately with a fade.</summary>
+    public bool AutoTakeScenes { get; set; } = true;
+
     private static string Dir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "KHVideoSwitcher");
     private static string FilePath => Path.Combine(Dir, "settings.json");
