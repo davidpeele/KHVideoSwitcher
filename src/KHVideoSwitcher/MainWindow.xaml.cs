@@ -7,6 +7,7 @@ using System.Windows.Threading;
 using KHVideoSwitcher.Capture;
 using KHVideoSwitcher.VCam;
 using KHVideoSwitcher.Video;
+using MediaState = KHVideoSwitcher.Video.MediaState;
 
 namespace KHVideoSwitcher;
 
@@ -16,6 +17,8 @@ public partial class MainWindow : Window
 
     private readonly CameraCaptureService _camera = new();
     private readonly DisplayCaptureService _display = new();
+    private readonly MediaStateDetector _detector = new();
+    private MediaState _lastAutoState = MediaState.NoFeed;
     private readonly VirtualCameraController _vcam = new();
     private readonly SharedFrameChannel _vcamChannel = new();
     private readonly PtzCompositor _compositor = new();
@@ -77,6 +80,8 @@ public partial class MainWindow : Window
             RefreshMediaTargets();
             UpdateSceneButtons();
             UpdateAutoTakeButton();
+            UpdateAutoScenesButton();
+            _detector.ImportStock(_settings.StockFingerprint);
         }
         catch (Exception ex)
         {
@@ -151,6 +156,7 @@ public partial class MainWindow : Window
         _compositor.SetCameraFrame(_sourceFrame, w, h);
 
         // Pull the newest media frame if capture is running and fresh.
+        MediaState mediaState;
         if (_display.IsRunning)
         {
             _display.PumpFrames();
@@ -158,15 +164,28 @@ public partial class MainWindow : Window
                 _display.TryCopyLatestFrame(ref _mediaFrame, out var mw, out var mh))
             {
                 _compositor.SetMediaFrame(_mediaFrame, mw, mh);
+                mediaState = _detector.Analyze(_mediaFrame, mw, mh);
             }
-            else if (_display.LastFrameAgeMs > MediaStaleMs)
+            else
             {
-                _compositor.ClearMedia();
+                if (_display.LastFrameAgeMs > MediaStaleMs)
+                    _compositor.ClearMedia();
+                mediaState = _detector.AnalyzeNoFeed();
             }
         }
         else
         {
             _compositor.ClearMedia();
+            mediaState = _detector.AnalyzeNoFeed();
+        }
+
+        // The auto-director reacts to state CHANGES only, so manual takes
+        // stick until JW Library actually does something different.
+        if (mediaState != _lastAutoState)
+        {
+            _lastAutoState = mediaState;
+            if (_settings.AutoScenes)
+                AutoSwitch(mediaState);
         }
 
         Scene program;
@@ -360,11 +379,12 @@ public partial class MainWindow : Window
     private void TakeButton_Click(object sender, RoutedEventArgs e) => Take(_settings.FadeMs);
     private void CutButton_Click(object sender, RoutedEventArgs e) => Take(0);
 
-    private void Take(int fadeMs)
+    private void Take(int fadeMs) => TakeTo(new Scene(_previewKind, _previewState.Clamped()), fadeMs);
+
+    private void TakeTo(Scene target, int fadeMs)
     {
         lock (_ptzLock)
         {
-            var target = new Scene(_previewKind, _previewState.Clamped());
             if (_transition is not null)
             {
                 // Already fading to this exact scene: let that fade finish.
@@ -382,6 +402,56 @@ public partial class MainWindow : Window
             {
                 _transition = new SceneTransition(_programScene, target, fadeMs);
             }
+        }
+    }
+
+    /// <summary>Auto-director action for a media state change (compose thread).</summary>
+    private void AutoSwitch(MediaState state)
+    {
+        var ptz = _previewState.Clamped();
+        var target = state switch
+        {
+            MediaState.Video => new Scene(SceneKind.Media, ptz),
+            MediaState.Still => new Scene(SceneKind.OverShoulder, ptz),
+            _ => new Scene(SceneKind.Camera, ptz),
+        };
+        TakeTo(target, _settings.FadeMs);
+    }
+
+    private void AutoScenesButton_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.AutoScenes = !_settings.AutoScenes;
+        _settings.Save();
+        UpdateAutoScenesButton();
+        if (_settings.AutoScenes)
+        {
+            if (!_display.IsRunning)
+                StatusText.Text = "AUTO is on, but media capture is not running — start Capture so JW Library can be watched.";
+            else if (!_detector.HasStock)
+                StatusText.Text = "AUTO is on. Tip: click Set Stock while the yeartext screen shows, so 'no media' is recognized.";
+            AutoSwitch(_detector.State);
+        }
+    }
+
+    private void UpdateAutoScenesButton()
+    {
+        AutoScenesButton.Content = _settings.AutoScenes ? "AUTO: ON" : "AUTO: OFF";
+        AutoScenesButton.Background = new SolidColorBrush(_settings.AutoScenes
+            ? Color.FromRgb(0x1F, 0x6E, 0x1F)
+            : Color.FromRgb(0x33, 0x33, 0x33));
+    }
+
+    private void StockButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_detector.TryCaptureStock(out var base64))
+        {
+            _settings.StockFingerprint = base64;
+            _settings.Save();
+            StatusText.Text = "Stock (no media) screen fingerprinted — automatic switching will treat this screen as NO MEDIA.";
+        }
+        else
+        {
+            StatusText.Text = "No media frame available yet — start Capture first, with the yeartext screen showing.";
         }
     }
 
@@ -557,6 +627,10 @@ public partial class MainWindow : Window
                 AutoTakeButton_Click(this, new RoutedEventArgs());
                 e.Handled = true;
                 break;
+            case Key.F4:
+                AutoScenesButton_Click(this, new RoutedEventArgs());
+                e.Handled = true;
+                break;
             case >= Key.D1 and <= Key.D6:
                 HandlePresetKey(e.Key - Key.D1, e);
                 break;
@@ -676,8 +750,11 @@ public partial class MainWindow : Window
                 : _display.LastError is not null ? $"ERROR — {_display.LastError}"
                 : _display.LastFrameAgeMs > MediaStaleMs ? "no frames (is the window minimized?)"
                 : $"{_display.Width}x{_display.Height}";
+            var detect = _display.IsRunning
+                ? $"   |   detect: {_detector.State}{(_settings.AutoScenes ? " → AUTO" : "")}"
+                : "";
             StatusText.Text = $"{fmt}   |   live: {fps} fps   |   program: {program.Kind} {program.Ptz.Zoom:0.0}x" +
-                              $"   |   media: {media}" +
+                              $"   |   media: {media}{detect}" +
                               (_vcamOn ? "   |   virtual camera: ON" : "");
         }
     }

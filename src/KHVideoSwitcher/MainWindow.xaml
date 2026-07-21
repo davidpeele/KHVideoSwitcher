@@ -44,6 +44,9 @@
                       DropDownOpened="MediaCombo_DropDownOpened"/>
             <Button x:Name="MediaCaptureButton" Content="Capture" Width="90" Margin="12,0,0,0"
                     Padding="0,4" Click="MediaCaptureButton_Click"/>
+            <Button x:Name="StockButton" Content="Set Stock" Width="80" Margin="12,0,0,0"
+                    Padding="0,4" Click="StockButton_Click"
+                    ToolTip="Click while JW Library shows the yeartext / no-media screen. That screen is then recognized as NO MEDIA by automatic switching."/>
         </StackPanel>
 
         <!-- Preview / Program panes -->
@@ -116,6 +119,9 @@
                 <Button x:Name="AutoTakeButton" Content="Auto-Take: ON" Width="120" Height="40" Margin="16,0,0,0"
                         Background="#FF7A5A1F" Foreground="White" BorderBrush="#FF555555" Click="AutoTakeButton_Click"
                         ToolTip="ON: scene buttons and F1-F3 fade Program immediately. OFF: they only set PREVIEW; use TAKE/CUT. (A)"/>
+                <Button x:Name="AutoScenesButton" Content="AUTO: OFF" Width="110" Height="40" Margin="16,0,0,0"
+                        Background="#FF333333" Foreground="White" BorderBrush="#FF555555" Click="AutoScenesButton_Click"
+                        ToolTip="Automatic switching from JW Library state: video → MEDIA, still image → OTS, no media → CAM. Manual controls always stay available. (F4)"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
                 <TextBlock Text="Presets:" Foreground="#FF888888" VerticalAlignment="Center" Margin="0,0,6,0"/>

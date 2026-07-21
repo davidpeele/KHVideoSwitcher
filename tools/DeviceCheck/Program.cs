@@ -29,6 +29,12 @@ if (args.Length > 0 && args[0].Equals("ptztest", StringComparison.OrdinalIgnoreC
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("detecttest", StringComparison.OrdinalIgnoreCase))
+{
+    await RunDetectTestAsync();
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("wgctest", StringComparison.OrdinalIgnoreCase))
 {
     await RunWgcTestAsync(args.Length > 1 ? args[1] : "Notepad", args.Length > 2 ? args[2] : "wgc-test.png");
@@ -139,6 +145,87 @@ foreach (var dev in monitorDevices)
 }
 
 Console.WriteLine("\nDevice check complete.");
+
+// Media state detector test: drives synthetic frames through the detector and
+// checks the classified states (video / still / no-media) with real timing.
+static async Task RunDetectTestAsync()
+{
+    Console.WriteLine("=== KH Video Switcher — Media State Detector Test ===\n");
+
+    const int w = 320, h = 180;
+    var frame = new byte[w * h * 4];
+    var detector = new KHVideoSwitcher.Video.MediaStateDetector();
+    var rng = new Random(42);
+    var failures = 0;
+
+    void FillNoise()
+    {
+        rng.NextBytes(frame);
+    }
+    void FillSolid(byte b, byte g, byte r)
+    {
+        for (var i = 0; i < frame.Length; i += 4)
+        {
+            frame[i] = b;
+            frame[i + 1] = g;
+            frame[i + 2] = r;
+            frame[i + 3] = 255;
+        }
+    }
+
+    async Task<KHVideoSwitcher.Video.MediaState> RunPhaseAsync(string name, int ms, bool noise)
+    {
+        var end = Environment.TickCount64 + ms;
+        KHVideoSwitcher.Video.MediaState state = default;
+        while (Environment.TickCount64 < end)
+        {
+            if (noise)
+                FillNoise();
+            state = detector.Analyze(frame, w, h);
+            await Task.Delay(33);
+        }
+        Console.WriteLine($"{name}: state={state} (motion {detector.LastMotion:0.0})");
+        return state;
+    }
+
+    void Check(string what, KHVideoSwitcher.Video.MediaState actual, KHVideoSwitcher.Video.MediaState expected)
+    {
+        if (actual != expected)
+        {
+            Console.WriteLine($"  FAIL: {what}: expected {expected}, got {actual}");
+            failures++;
+        }
+    }
+
+    // 1. Motion => Video.
+    var s = await RunPhaseAsync("1. moving frames 2s", 2000, noise: true);
+    Check("video detection", s, KHVideoSwitcher.Video.MediaState.Video);
+
+    // 2. Static, unknown content => Still (after sticky window + debounce).
+    FillSolid(30, 60, 90);
+    s = await RunPhaseAsync("2. static frame 4s", 4000, noise: false);
+    Check("still detection", s, KHVideoSwitcher.Video.MediaState.Still);
+
+    // 3. Fingerprint this static frame as stock => NoMedia.
+    if (!detector.TryCaptureStock(out _))
+    {
+        Console.WriteLine("  FAIL: could not capture stock fingerprint");
+        failures++;
+    }
+    s = await RunPhaseAsync("3. same static, fingerprinted, 2s", 2000, noise: false);
+    Check("no-media detection", s, KHVideoSwitcher.Video.MediaState.NoMedia);
+
+    // 4. Motion resumes => Video quickly.
+    s = await RunPhaseAsync("4. moving frames 1s", 1000, noise: true);
+    Check("video re-detection", s, KHVideoSwitcher.Video.MediaState.Video);
+
+    // 5. A different static image (not stock) => Still.
+    FillSolid(200, 180, 120);
+    s = await RunPhaseAsync("5. different static 4s", 4000, noise: false);
+    Check("still (non-stock) detection", s, KHVideoSwitcher.Video.MediaState.Still);
+
+    Console.WriteLine(failures == 0 ? "\nAll detector checks PASSED." : $"\n{failures} detector check(s) FAILED.");
+}
 
 // Window/monitor capture test: captures the first target whose name contains
 // the filter, pumps frames for 3 seconds, reports errors verbatim, saves a PNG.

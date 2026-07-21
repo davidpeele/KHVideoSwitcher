@@ -14,6 +14,12 @@ public sealed class AppSettings
     /// <summary>When true, selecting a scene (buttons/F-keys) takes it immediately with a fade.</summary>
     public bool AutoTakeScenes { get; set; } = true;
 
+    /// <summary>When true, media-state changes switch scenes automatically.</summary>
+    public bool AutoScenes { get; set; }
+
+    /// <summary>Base64 luma-grid fingerprint of the stock (yeartext) screen.</summary>
+    public string? StockFingerprint { get; set; }
+
     private static string Dir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "KHVideoSwitcher");
     private static string FilePath => Path.Combine(Dir, "settings.json");
