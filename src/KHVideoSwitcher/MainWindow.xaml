@@ -47,17 +47,22 @@
             <Button x:Name="StockButton" Content="Set Stock" Width="80" Margin="12,0,0,0"
                     Padding="0,4" Click="StockButton_Click"
                     ToolTip="Click while JW Library shows the yeartext / no-media screen. That screen is then recognized as NO MEDIA by automatic switching."/>
+            <Button x:Name="SettingsButton" Content="Settings" Width="80" Margin="12,0,0,0"
+                    Padding="0,4" Click="SettingsButton_Click"/>
+            <Button x:Name="CompactButton" Content="Compact" Width="80" Margin="12,0,0,0"
+                    Padding="0,4" Click="CompactButton_Click"
+                    ToolTip="Hide the PREVIEW pane for a smaller meeting layout (F11)"/>
         </StackPanel>
 
         <!-- Preview / Program panes -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="12"/>
+                <ColumnDefinition x:Name="PreviewCol" Width="*"/>
+                <ColumnDefinition x:Name="SpacerCol" Width="12"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <Grid Grid.Column="0">
+            <Grid Grid.Column="0" x:Name="PreviewPane">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>

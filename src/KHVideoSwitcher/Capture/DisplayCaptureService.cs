@@ -51,6 +51,9 @@ public sealed class DisplayCaptureService : IDisposable
     /// <summary>Human-readable reason frames stopped (window closed, pump error), or null.</summary>
     public string? LastError { get; private set; }
 
+    /// <summary>Ask Windows not to draw the capture highlight border. Set before Start.</summary>
+    public bool HideBorder { get; set; } = true;
+
     // ---------- enumeration ----------
 
     public static IReadOnlyList<CaptureTarget> ListTargets()
@@ -168,6 +171,20 @@ public sealed class DisplayCaptureService : IDisposable
         catch
         {
             // Older builds don't allow toggling cursor capture; harmless.
+        }
+        if (HideBorder)
+        {
+            try
+            {
+                // Requires borderless capture access; auto-granted for desktop apps on Win11.
+                GraphicsCaptureAccess.RequestAccessAsync(GraphicsCaptureAccessKind.Borderless)
+                    .GetAwaiter().GetResult();
+                _session.IsBorderRequired = false;
+            }
+            catch
+            {
+                // Not available / denied: the yellow border stays. Cosmetic only.
+            }
         }
         _session.StartCapture();
         TargetName = target.Name;

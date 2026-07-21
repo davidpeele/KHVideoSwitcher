@@ -20,9 +20,10 @@ public sealed class PtzCompositor : IDisposable
     public const int OutBytes = OutWidth * OutHeight * 4;
 
     // Over-the-shoulder layout: camera fullscreen, media inset top-right.
-    public const double InsetWidthFraction = 0.38;
-    public const double InsetMarginRight = 56;
-    public const double InsetMarginTop = 72;
+    // Settable at runtime (Settings window); read on the compose thread.
+    public double InsetWidthFraction { get; set; } = 0.42;
+    public double InsetMarginRight { get; set; } = 56;
+    public double InsetMarginTop { get; set; } = 72;
 
     private readonly object _outputLock = new();
     private readonly byte[] _output = new byte[OutBytes];

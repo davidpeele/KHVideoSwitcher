@@ -88,6 +88,7 @@ public partial class MainWindow : Window
             DragModeCheck.IsChecked = _settings.DragMovesPicture;
             SyncZoomSlider();
             _detector.ImportStock(_settings.StockFingerprint);
+            ApplySettings();
         }
         catch (Exception ex)
         {
@@ -452,6 +453,32 @@ public partial class MainWindow : Window
             : Color.FromRgb(0x33, 0x33, 0x33));
     }
 
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        new SettingsWindow(_settings, ApplySettings) { Owner = this }.Show();
+    }
+
+    /// <summary>Pushes current settings into the live pipeline and persists them.</summary>
+    private void ApplySettings()
+    {
+        _compositor.InsetWidthFraction = _settings.OtsInsetWidthFraction;
+        _compositor.InsetMarginTop = _settings.OtsInsetTopMargin;
+        _compositor.InsetMarginRight = _settings.OtsInsetRightMargin;
+        _display.HideBorder = _settings.HideCaptureBorder;
+        _settings.Save();
+    }
+
+    private bool _compact;
+
+    private void CompactButton_Click(object sender, RoutedEventArgs e)
+    {
+        _compact = !_compact;
+        PreviewPane.Visibility = _compact ? Visibility.Collapsed : Visibility.Visible;
+        PreviewCol.Width = _compact ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        SpacerCol.Width = new GridLength(_compact ? 0 : 12);
+        CompactButton.Content = _compact ? "Full View" : "Compact";
+    }
+
     private void StockButton_Click(object sender, RoutedEventArgs e)
     {
         if (_detector.TryCaptureStock(out var base64))
@@ -643,6 +670,10 @@ public partial class MainWindow : Window
                 break;
             case Key.F4:
                 AutoScenesButton_Click(this, new RoutedEventArgs());
+                e.Handled = true;
+                break;
+            case Key.F11:
+                CompactButton_Click(this, new RoutedEventArgs());
                 e.Handled = true;
                 break;
             case >= Key.D1 and <= Key.D6:

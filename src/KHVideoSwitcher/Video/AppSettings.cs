@@ -30,6 +30,18 @@ public sealed class AppSettings
     public string? LastCameraName { get; set; }
     public string? LastMediaTargetName { get; set; }
 
+    /// <summary>Over-the-shoulder inset: media box width as a fraction of the frame.</summary>
+    public double OtsInsetWidthFraction { get; set; } = 0.42;
+
+    /// <summary>Over-the-shoulder inset: gap from the top edge, output pixels.</summary>
+    public double OtsInsetTopMargin { get; set; } = 72;
+
+    /// <summary>Over-the-shoulder inset: gap from the right edge, output pixels.</summary>
+    public double OtsInsetRightMargin { get; set; } = 56;
+
+    /// <summary>Ask Windows not to draw the capture highlight border (applies when capture starts).</summary>
+    public bool HideCaptureBorder { get; set; } = true;
+
     private static string Dir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "KHVideoSwitcher");
     private static string FilePath => Path.Combine(Dir, "settings.json");
