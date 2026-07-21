@@ -7,7 +7,8 @@ public sealed class AppSettings
 {
     public const int PresetCount = 6;
 
-    public PtzState?[] Presets { get; set; } = new PtzState?[PresetCount];
+    /// <summary>Each preset stores a complete look: scene kind + camera framing.</summary>
+    public Scene?[] Presets { get; set; } = new Scene?[PresetCount];
     public int FadeMs { get; set; } = 300;
 
     /// <summary>When true, selecting a scene (buttons/F-keys) takes it immediately with a fade.</summary>
@@ -30,9 +31,16 @@ public sealed class AppSettings
                 {
                     if (loaded.Presets.Length != PresetCount)
                     {
-                        var resized = new PtzState?[PresetCount];
+                        var resized = new Scene?[PresetCount];
                         Array.Copy(loaded.Presets, resized, Math.Min(loaded.Presets.Length, PresetCount));
                         loaded.Presets = resized;
+                    }
+                    // Drop entries from the pre-scene settings format (their
+                    // PTZ deserializes as zoom 0, which is never valid).
+                    for (var i = 0; i < loaded.Presets.Length; i++)
+                    {
+                        if (loaded.Presets[i] is { Ptz.Zoom: <= 0 })
+                            loaded.Presets[i] = null;
                     }
                     return loaded;
                 }

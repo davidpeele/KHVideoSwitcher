@@ -414,35 +414,48 @@ public partial class MainWindow : Window
     {
         if (sender is Button { Tag: string tag } && int.TryParse(tag, out var index))
         {
-            _settings.Presets[index] = _previewState.Clamped();
-            _settings.Save();
-            RefreshPresetButtons();
-            StatusText.Text = $"Preset {index + 1} saved.";
+            SavePreset(index);
             e.Handled = true;
         }
+    }
+
+    private void SavePreset(int index)
+    {
+        var preset = new Scene(_previewKind, _previewState.Clamped());
+        _settings.Presets[index] = preset;
+        _settings.Save();
+        RefreshPresetButtons();
+        StatusText.Text = $"Preset {index + 1} saved: {KindTag(preset.Kind)} at {preset.Ptz.Zoom:0.0}x.";
     }
 
     private void RecallPreset(int index)
     {
         if (index < 0 || index >= _settings.Presets.Length || _settings.Presets[index] is not { } preset)
         {
-            StatusText.Text = $"Preset {index + 1} is empty — frame a shot in PREVIEW and right-click the button to save it.";
+            StatusText.Text = $"Preset {index + 1} is empty — set up a shot in PREVIEW and right-click the button to save it.";
             return;
         }
-        _previewState = preset;
-        SetPreviewScene(SceneKind.Camera);
+        _previewState = preset.Ptz;
+        SetPreviewScene(preset.Kind);
         UpdateCropOverlay();
         Take(_settings.FadeMs);
     }
+
+    private static string KindTag(SceneKind kind) => kind switch
+    {
+        SceneKind.Media => "MED",
+        SceneKind.OverShoulder => "OTS",
+        _ => "CAM",
+    };
 
     private void RefreshPresetButtons()
     {
         Button[] buttons = [Preset1, Preset2, Preset3, Preset4, Preset5, Preset6];
         for (var i = 0; i < buttons.Length; i++)
         {
-            var saved = i < _settings.Presets.Length && _settings.Presets[i] is not null;
-            buttons[i].Content = saved ? $"{i + 1} ●" : $"{i + 1}";
-            buttons[i].Foreground = saved ? Brushes.White : new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x77));
+            var preset = i < _settings.Presets.Length ? _settings.Presets[i] : null;
+            buttons[i].Content = preset is { } p ? $"{i + 1} {KindTag(p.Kind)}" : $"{i + 1}";
+            buttons[i].Foreground = preset is not null ? Brushes.White : new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x77));
         }
     }
 
@@ -502,10 +515,7 @@ public partial class MainWindow : Window
     {
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
         {
-            _settings.Presets[index] = _previewState.Clamped();
-            _settings.Save();
-            RefreshPresetButtons();
-            StatusText.Text = $"Preset {index + 1} saved.";
+            SavePreset(index);
         }
         else
         {
