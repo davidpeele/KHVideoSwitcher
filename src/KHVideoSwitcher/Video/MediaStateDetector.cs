@@ -32,10 +32,23 @@ public sealed class MediaStateDetector
     // Screen captures are pixel-exact, so a static screen diffs at ~0;
     // any real playback motion lands far above this.
     private const double MotionThreshold = 0.8;
-    private const int VideoStickyMs = 1500;   // motion this recent still counts as video
+    private const int VideoStickyMs = 1500;   // sustained motion this recent still counts as video
     private const double StockTolerance = 3.0;
     private const int EnterVideoMs = 250;     // react to video fast
     private const int EnterOtherMs = 1200;    // leave video / settle slowly
+
+    // Video means SUSTAINED motion: at least MotionTicksNeeded moving frames
+    // within the last MotionRingSize ticks (~1.5s at 30fps). A still image
+    // swap (1 changed frame) or JW Library's image fade-in (~0.5s) stays far
+    // below this; real playback is continuous and clears it easily.
+    private const int MotionRingSize = 45;
+    private const int MotionTicksNeeded = 25;
+
+    // Videos often hold a static frame for a while (scripture references,
+    // title cards). Once Video is active it is LATCHED: stills don't end it —
+    // only the stock screen or feed loss does. Without a stock fingerprint a
+    // long stillness is the fallback exit.
+    private const int NoStockStillExitMs = 6000;
 
     private readonly object _lock = new();
     private readonly byte[] _gridA = new byte[GridLen];
@@ -44,6 +57,10 @@ public sealed class MediaStateDetector
     private bool _havePrev;
     private byte[]? _stock;
     private long _lastMotionMs = long.MinValue;
+    private long _lastSustainedMs = long.MinValue;
+    private readonly bool[] _motionRing = new bool[MotionRingSize];
+    private int _motionRingIndex;
+    private int _motionRingCount;
     private MediaState _active = MediaState.NoFeed;
     private MediaState _candidate = MediaState.NoFeed;
     private long _candidateSinceMs;
@@ -72,16 +89,41 @@ public sealed class MediaStateDetector
             var hadPrev = _havePrev;
             _havePrev = true;
 
-            if (hadPrev && motion > MotionThreshold)
+            bool moving = hadPrev && motion > MotionThreshold;
+            if (moving)
                 _lastMotionMs = now;
 
+            // Sliding window of per-tick motion flags.
+            if (_motionRing[_motionRingIndex])
+                _motionRingCount--;
+            _motionRing[_motionRingIndex] = moving;
+            if (moving)
+                _motionRingCount++;
+            _motionRingIndex = (_motionRingIndex + 1) % MotionRingSize;
+            if (_motionRingCount >= MotionTicksNeeded)
+                _lastSustainedMs = now;
+
             MediaState candidate;
-            if (hadPrev && _lastMotionMs != long.MinValue && now - _lastMotionMs <= VideoStickyMs)
+            if (hadPrev && _lastSustainedMs != long.MinValue && now - _lastSustainedMs <= VideoStickyMs)
+            {
                 candidate = MediaState.Video;
+            }
             else if (_stock is not null && MeanAbsDiff(current, _stock) <= StockTolerance)
+            {
                 candidate = MediaState.NoMedia;
+            }
             else
+            {
                 candidate = MediaState.Still;
+
+                // Video latch: during playback a static segment stays Video.
+                if (_active == MediaState.Video)
+                {
+                    long stillnessMs = _lastMotionMs == long.MinValue ? 0 : now - _lastMotionMs;
+                    if (_stock is not null || stillnessMs <= NoStockStillExitMs)
+                        candidate = MediaState.Video;
+                }
+            }
 
             return Debounce(candidate, now);
         }
@@ -93,6 +135,8 @@ public sealed class MediaStateDetector
         lock (_lock)
         {
             _havePrev = false;
+            Array.Clear(_motionRing);
+            _motionRingCount = 0;
             return Debounce(MediaState.NoFeed, Environment.TickCount64);
         }
     }

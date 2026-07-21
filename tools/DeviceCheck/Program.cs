@@ -201,10 +201,15 @@ static async Task RunDetectTestAsync()
     var s = await RunPhaseAsync("1. moving frames 2s", 2000, noise: true);
     Check("video detection", s, KHVideoSwitcher.Video.MediaState.Video);
 
-    // 2. Static, unknown content => Still (after sticky window + debounce).
+    // 2. Static mid-video (scripture card), no stock set => stays LATCHED as
+    //    Video for a good while.
     FillSolid(30, 60, 90);
-    s = await RunPhaseAsync("2. static frame 4s", 4000, noise: false);
-    Check("still detection", s, KHVideoSwitcher.Video.MediaState.Still);
+    s = await RunPhaseAsync("2. static 4s during video (latch)", 4000, noise: false);
+    Check("video latch through still segment", s, KHVideoSwitcher.Video.MediaState.Video);
+
+    // 2b. Without a stock fingerprint, a very long stillness eventually exits.
+    s = await RunPhaseAsync("2b. static 5 more sec (no-stock fallback)", 5000, noise: false);
+    Check("no-stock long-still fallback", s, KHVideoSwitcher.Video.MediaState.Still);
 
     // 3. Fingerprint this static frame as stock => NoMedia.
     if (!detector.TryCaptureStock(out _))
@@ -216,12 +221,22 @@ static async Task RunDetectTestAsync()
     Check("no-media detection", s, KHVideoSwitcher.Video.MediaState.NoMedia);
 
     // 4. Motion resumes => Video quickly.
-    s = await RunPhaseAsync("4. moving frames 1s", 1000, noise: true);
+    s = await RunPhaseAsync("4. moving frames 1.5s", 1500, noise: true);
     Check("video re-detection", s, KHVideoSwitcher.Video.MediaState.Video);
 
-    // 5. A different static image (not stock) => Still.
+    // 5. With stock set, a static NON-stock frame keeps the latch forever…
     FillSolid(200, 180, 120);
-    s = await RunPhaseAsync("5. different static 4s", 4000, noise: false);
+    s = await RunPhaseAsync("5. static non-stock 8s (latched)", 8000, noise: false);
+    Check("video latch holds with stock set", s, KHVideoSwitcher.Video.MediaState.Video);
+
+    // 6. …until the stock screen appears => NoMedia.
+    FillSolid(30, 60, 90);
+    s = await RunPhaseAsync("6. stock screen 4s", 4000, noise: false);
+    Check("stock screen releases the latch", s, KHVideoSwitcher.Video.MediaState.NoMedia);
+
+    // 7. From NoMedia, a different static image => Still (normal path).
+    FillSolid(120, 90, 200);
+    s = await RunPhaseAsync("7. different static 3s", 3000, noise: false);
     Check("still (non-stock) detection", s, KHVideoSwitcher.Video.MediaState.Still);
 
     Console.WriteLine(failures == 0 ? "\nAll detector checks PASSED." : $"\n{failures} detector check(s) FAILED.");
