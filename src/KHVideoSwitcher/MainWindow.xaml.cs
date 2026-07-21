@@ -43,10 +43,13 @@ public partial class MainWindow : Window
     private Point _dragStart;
     private PtzState _dragStartState;
 
+    private Thread? _composeThread;
+    private volatile bool _composeActive;
+    private bool _haveCameraFrame;
+
     public MainWindow()
     {
         InitializeComponent();
-        _camera.FrameArrived += OnFrameArrived;
         _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _statusTimer.Tick += (_, _) => UpdateStatus();
         Loaded += MainWindow_Loaded;
@@ -81,9 +84,53 @@ public partial class MainWindow : Window
         }
     }
 
-    // ---------- capture / compose / distribute ----------
+    // ---------- compose clock ----------
 
-    private void OnFrameArrived()
+    // The output runs on its own 30 fps clock, independent of the camera:
+    // a stalled camera repeats its last frame instead of freezing the
+    // program output, fades, and scene switches.
+    private void StartComposeLoop()
+    {
+        if (_composeThread is not null)
+            return;
+        _composeActive = true;
+        _composeThread = new Thread(ComposeLoop) { IsBackground = true, Name = "Compose" };
+        _composeThread.Start();
+    }
+
+    private void StopComposeLoop()
+    {
+        _composeActive = false;
+        _composeThread?.Join(500);
+        _composeThread = null;
+        _haveCameraFrame = false;
+    }
+
+    private void ComposeLoop()
+    {
+        const long frameMs = 33;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        long next = 0;
+        while (_composeActive)
+        {
+            try
+            {
+                ComposeTick();
+            }
+            catch
+            {
+                // A transient compose failure must never kill the output clock.
+            }
+            next += frameMs;
+            long sleep = next - sw.ElapsedMilliseconds;
+            if (sleep > 1)
+                Thread.Sleep((int)sleep);
+            else if (sleep < -250)
+                next = sw.ElapsedMilliseconds; // fell badly behind; resync
+        }
+    }
+
+    private void ComposeTick()
     {
         int w = _camera.Width, h = _camera.Height;
         int size = w * h * 4;
@@ -91,8 +138,14 @@ public partial class MainWindow : Window
             return;
 
         if (_sourceFrame.Length != size)
+        {
             _sourceFrame = new byte[size];
-        if (!_camera.TryCopyLatestFrame(_sourceFrame))
+            _haveCameraFrame = false;
+        }
+        // A failed copy (camera hiccup) keeps the previous frame content.
+        if (_camera.TryCopyLatestFrame(_sourceFrame))
+            _haveCameraFrame = true;
+        if (!_haveCameraFrame)
             return;
 
         _compositor.SetCameraFrame(_sourceFrame, w, h);
@@ -189,6 +242,7 @@ public partial class MainWindow : Window
         {
             if (_camera.IsRunning)
             {
+                StopComposeLoop();
                 await _camera.StopAsync();
                 _statusTimer.Stop();
                 StartStopButton.Content = "Start";
@@ -210,6 +264,7 @@ public partial class MainWindow : Window
                 CameraCombo.IsEnabled = false;
                 StatusText.Text = $"{cam.Name} — {format}";
                 UpdateCropOverlay();
+                StartComposeLoop();
             }
         }
         catch (UnauthorizedAccessException)
@@ -629,7 +684,7 @@ public partial class MainWindow : Window
 
     protected override async void OnClosed(EventArgs e)
     {
-        _camera.FrameArrived -= OnFrameArrived;
+        StopComposeLoop();
         _vcamOn = false;
         _vcam.Dispose();
         _vcamChannel.Dispose();
