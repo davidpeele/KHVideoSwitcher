@@ -19,9 +19,10 @@ public sealed class PtzCompositor : IDisposable
     public const int OutHeight = 1080;
     public const int OutBytes = OutWidth * OutHeight * 4;
 
-    // Over-the-shoulder inset layout (fractions of the output frame).
-    public const double InsetWidthFraction = 0.34;
-    public const double InsetMargin = 40;
+    // Over-the-shoulder layout: camera fullscreen, media inset top-right.
+    public const double InsetWidthFraction = 0.38;
+    public const double InsetMarginRight = 56;
+    public const double InsetMarginTop = 72;
 
     private readonly object _outputLock = new();
     private readonly byte[] _output = new byte[OutBytes];
@@ -166,12 +167,17 @@ public sealed class PtzCompositor : IDisposable
                 break;
 
             case SceneKind.Media:
-                DrawMediaFilled(opacity);
+                DrawMedia(new D2D_RECT_F(0f, 0f, OutWidth, OutHeight), opacity);
                 break;
 
             case SceneKind.OverShoulder:
-                DrawMediaFilled(opacity);
-                DrawCameraInset(scene.Ptz, opacity);
+                // Camera behind, captured media boxed in the top-right corner.
+                DrawCameraCrop(scene.Ptz, opacity, 0, 0, OutWidth, OutHeight);
+                float w = (float)(OutWidth * InsetWidthFraction);
+                float h = w * 9f / 16f;
+                float x = (float)(OutWidth - w - InsetMarginRight);
+                float y = (float)InsetMarginTop;
+                DrawMedia(new D2D_RECT_F(x, y, x + w, y + h), opacity);
                 break;
         }
     }
@@ -187,7 +193,13 @@ public sealed class PtzCompositor : IDisposable
             D2D1_BITMAP_INTERPOLATION_MODE.D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, (nint)(&src));
     }
 
-    private unsafe void DrawMediaFilled(float opacity)
+    /// <summary>
+    /// Draws the captured media into <paramref name="dest"/> with aspect-fill:
+    /// the 16:9 center of the source covers the rectangle edge to edge,
+    /// cropping overflow (window chrome, ultrawide side bars). JW Library
+    /// media is 16:9, so the actual content survives intact.
+    /// </summary>
+    private unsafe void DrawMedia(D2D_RECT_F dest, float opacity)
     {
         if (!_hasMedia || _mediaBitmap is null || _mediaWidth <= 0 || _mediaHeight <= 0)
         {
@@ -195,33 +207,19 @@ public sealed class PtzCompositor : IDisposable
             if (_placeholderBrush is not null)
             {
                 _placeholderBrush.Object.SetOpacity(opacity);
-                var full = new D2D_RECT_F(0f, 0f, OutWidth, OutHeight);
-                _rt!.Object.FillRectangle(ref full, _placeholderBrush.Object);
+                _rt!.Object.FillRectangle(ref dest, _placeholderBrush.Object);
                 _placeholderBrush.Object.SetOpacity(1f);
             }
             return;
         }
 
-        // Aspect-fill: cover the whole 16:9 frame, cropping the source overflow
-        // (window chrome, ultrawide side bars) centered. JW Library media is
-        // 16:9, so the actual content fills edge to edge.
         double cropW = Math.Min(_mediaWidth, _mediaHeight * 16.0 / 9.0);
         double cropH = cropW * 9.0 / 16.0;
         float sx = (float)((_mediaWidth - cropW) / 2);
         float sy = (float)((_mediaHeight - cropH) / 2);
         var src = new D2D_RECT_F(sx, sy, sx + (float)cropW, sy + (float)cropH);
-        var dest = new D2D_RECT_F(0f, 0f, OutWidth, OutHeight);
         _rt!.Object.DrawBitmap(_mediaBitmap.Object, (nint)(&dest), opacity,
             D2D1_BITMAP_INTERPOLATION_MODE.D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, (nint)(&src));
-    }
-
-    private void DrawCameraInset(PtzState state, float opacity)
-    {
-        float w = (float)(OutWidth * InsetWidthFraction);
-        float h = w * 9f / 16f;
-        float x = (float)(OutWidth - w - InsetMargin);
-        float y = (float)(OutHeight - h - InsetMargin);
-        DrawCameraCrop(state, opacity, x, y, w, h);
     }
 
     /// <summary>Copies the latest program frame (BGRA 1920x1080) to <paramref name="dest"/>.</summary>
