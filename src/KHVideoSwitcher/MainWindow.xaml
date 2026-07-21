@@ -18,6 +18,8 @@
             <ComboBox x:Name="CameraCombo" Width="320" Margin="8,0,0,0" VerticalAlignment="Center"/>
             <Button x:Name="StartStopButton" Content="Start" Width="90" Margin="12,0,0,0"
                     Padding="0,4" Click="StartStopButton_Click" IsEnabled="False"/>
+            <Button x:Name="VCamButton" Content="Virtual Camera: Off" Width="150" Margin="12,0,0,0"
+                    Padding="0,4" Click="VCamButton_Click"/>
         </StackPanel>
 
         <Border Grid.Row="1" Background="Black" Margin="10,0,10,0" CornerRadius="4">

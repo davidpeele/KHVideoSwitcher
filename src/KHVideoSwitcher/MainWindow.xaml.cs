@@ -3,16 +3,20 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using KHVideoSwitcher.Capture;
+using KHVideoSwitcher.VCam;
 
 namespace KHVideoSwitcher;
 
 public partial class MainWindow : Window
 {
     private readonly CameraCaptureService _camera = new();
+    private readonly VirtualCameraController _vcam = new();
+    private readonly SharedFrameChannel _vcamChannel = new();
     private readonly DispatcherTimer _statusTimer;
     private WriteableBitmap? _previewBitmap;
     private int _renderPending;
     private long _lastFrameCount;
+    private volatile bool _vcamOn;
 
     public MainWindow()
     {
@@ -90,8 +94,46 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void VCamButton_Click(object sender, RoutedEventArgs e)
+    {
+        VCamButton.IsEnabled = false;
+        try
+        {
+            if (_vcam.IsRunning)
+            {
+                _vcamOn = false;
+                _vcam.Stop();
+                VCamButton.Content = "Virtual Camera: Off";
+            }
+            else
+            {
+                // Start off the UI thread; creating the camera can take a moment.
+                await Task.Run(_vcam.Start);
+                _vcamChannel.TryOpen();
+                _vcamOn = true;
+                VCamButton.Content = "Virtual Camera: ON";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Virtual camera failed: {ex.Message} " +
+                              "(Is the KH Video Switcher camera component installed? Run scripts\\install-vcam.ps1.)";
+        }
+        finally
+        {
+            VCamButton.IsEnabled = true;
+        }
+    }
+
     private void OnFrameArrived()
     {
+        // Publish to the virtual camera first (still on the capture thread).
+        if (_vcamOn && _vcamChannel.TryOpen())
+        {
+            int w = _camera.Width, h = _camera.Height;
+            _vcamChannel.WriteFrame(w, h, w * 4, dest => _camera.TryCopyLatestFrame(dest, w * h * 4));
+        }
+
         // Coalesce: if a render is already queued, drop this frame notification.
         if (Interlocked.CompareExchange(ref _renderPending, 1, 0) != 0)
             return;
@@ -127,12 +169,16 @@ public partial class MainWindow : Window
         long fps = total - _lastFrameCount;
         _lastFrameCount = total;
         if (_camera.IsRunning && _camera.ActiveFormat is { } fmt)
-            StatusText.Text = $"{fmt}   |   live: {fps} fps   |   frames: {total}";
+            StatusText.Text = $"{fmt}   |   live: {fps} fps   |   frames: {total}" +
+                              (_vcamOn ? "   |   virtual camera: ON" : "");
     }
 
     protected override async void OnClosed(EventArgs e)
     {
         _camera.FrameArrived -= OnFrameArrived;
+        _vcamOn = false;
+        _vcam.Dispose();
+        _vcamChannel.Dispose();
         await _camera.StopAsync();
         base.OnClosed(e);
     }

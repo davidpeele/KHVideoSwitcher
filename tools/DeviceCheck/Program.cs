@@ -11,7 +11,15 @@ using Windows.Media.Capture.Frames;
 
 if (args.Length > 0 && args[0].Equals("capture", StringComparison.OrdinalIgnoreCase))
 {
-    await RunCaptureTestAsync(args.Length > 1 ? args[1] : "capture-test.png");
+    await RunCaptureTestAsync(
+        args.Length > 1 ? args[1] : "capture-test.png",
+        args.Length > 2 ? args[2] : "Logitech");
+    return;
+}
+
+if (args.Length > 0 && args[0].Equals("vcamtest", StringComparison.OrdinalIgnoreCase))
+{
+    await RunVCamEndToEndTestAsync(args.Length > 1 ? args[1] : "vcam-e2e.png");
     return;
 }
 
@@ -62,7 +70,113 @@ foreach (var dev in monitorDevices)
 
 Console.WriteLine("\nDevice check complete.");
 
-static async Task RunCaptureTestAsync(string outputPath)
+// End-to-end virtual camera test:
+//   webcam -> CameraCaptureService -> SharedFrameChannel -> KH Video Switcher vcam
+//   -> MediaCapture consumer (same path Zoom uses) -> PNG on disk.
+static async Task RunVCamEndToEndTestAsync(string outputPath)
+{
+    Console.WriteLine("=== KH Video Switcher — Virtual Camera End-to-End Test ===\n");
+
+    var cameras = await CameraCaptureService.ListCamerasAsync();
+    var physical = cameras.FirstOrDefault(c => c.Name.Contains("Logitech", StringComparison.OrdinalIgnoreCase));
+    if (physical is null)
+    {
+        Console.WriteLine("FAIL: physical camera (Logitech) not found.");
+        return;
+    }
+
+    Console.WriteLine($"1. Starting physical camera: {physical.Name}");
+    var service = new CameraCaptureService();
+    var format = await service.StartAsync(physical);
+    Console.WriteLine($"   {format}");
+
+    Console.WriteLine("2. Starting virtual camera…");
+    using var vcam = new KHVideoSwitcher.VCam.VirtualCameraController();
+    vcam.Start();
+    Console.WriteLine("   Virtual camera started.");
+
+    Console.WriteLine("3. Publishing frames to shared memory…");
+    using var channel = new KHVideoSwitcher.VCam.SharedFrameChannel();
+    long published = 0;
+    service.FrameArrived += () =>
+    {
+        if (channel.TryOpen())
+        {
+            int w = service.Width, h = service.Height;
+            if (channel.WriteFrame(w, h, w * 4, dest => service.TryCopyLatestFrame(dest, w * h * 4)))
+                Interlocked.Increment(ref published);
+        }
+    };
+    await Task.Delay(2000);
+    Console.WriteLine($"   Published {Interlocked.Read(ref published)} frames so far.");
+
+    Console.WriteLine("4. Opening the virtual camera as a consumer (like Zoom would)…");
+    var refreshed = await CameraCaptureService.ListCamerasAsync();
+    var virtualCam = refreshed.FirstOrDefault(c => c.Name.Contains("KH Video Switcher", StringComparison.OrdinalIgnoreCase));
+    if (virtualCam is null)
+    {
+        Console.WriteLine($"FAIL: virtual camera not enumerated. Available: {string.Join(", ", refreshed.Select(c => c.Name))}");
+        await service.StopAsync();
+        return;
+    }
+    Console.WriteLine($"   Found: {virtualCam.Name}");
+
+    var consumer = new CameraCaptureService();
+    var vFormat = await consumer.StartAsync(virtualCam);
+    Console.WriteLine($"   Consumer format: {vFormat}");
+    await Task.Delay(5000);
+    long consumed = consumer.FramesReceived;
+    Console.WriteLine($"   Frames from virtual camera: {consumed} (~{consumed / 5.0:0.#} fps); published: {Interlocked.Read(ref published)}");
+
+    int size = consumer.Width * consumer.Height * 4;
+    var pixels = new byte[size];
+    var handle = System.Runtime.InteropServices.GCHandle.Alloc(pixels, System.Runtime.InteropServices.GCHandleType.Pinned);
+    bool copied;
+    try
+    {
+        copied = consumer.TryCopyLatestFrame(handle.AddrOfPinnedObject(), size);
+    }
+    finally
+    {
+        handle.Free();
+    }
+
+    if (copied)
+    {
+        await SavePngAsync(pixels, consumer.Width, consumer.Height, outputPath);
+        Console.WriteLine($"5. Saved virtual camera frame: {Path.GetFullPath(outputPath)}");
+    }
+    else
+    {
+        Console.WriteLine("FAIL: could not copy a frame from the virtual camera.");
+    }
+
+    await consumer.StopAsync();
+    await service.StopAsync();
+    vcam.Stop();
+    Console.WriteLine("\nEnd-to-end test complete.");
+}
+
+static async Task SavePngAsync(byte[] bgraPixels, int width, int height, string outputPath)
+{
+    var sb = Windows.Graphics.Imaging.SoftwareBitmap.CreateCopyFromBuffer(
+        System.Runtime.InteropServices.WindowsRuntime.WindowsRuntimeBufferExtensions.AsBuffer(bgraPixels),
+        Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8, width, height,
+        Windows.Graphics.Imaging.BitmapAlphaMode.Ignore);
+
+    string fullPath = Path.GetFullPath(outputPath);
+    Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+    var folder = await Windows.Storage.StorageFolder.GetFolderFromPathAsync(Path.GetDirectoryName(fullPath));
+    var file = await folder.CreateFileAsync(Path.GetFileName(fullPath),
+        Windows.Storage.CreationCollisionOption.ReplaceExisting);
+    using var stream = await file.OpenAsync(Windows.Storage.FileAccessMode.ReadWrite);
+    var encoder = await Windows.Graphics.Imaging.BitmapEncoder.CreateAsync(
+        Windows.Graphics.Imaging.BitmapEncoder.PngEncoderId, stream);
+    encoder.SetSoftwareBitmap(sb);
+    await encoder.FlushAsync();
+}
+
+static async Task RunCaptureTestAsync(string outputPath, string nameFilter)
 {
     Console.WriteLine("=== KH Video Switcher — Capture Test ===\n");
 
@@ -72,8 +186,12 @@ static async Task RunCaptureTestAsync(string outputPath)
         Console.WriteLine("No cameras found.");
         return;
     }
-    var camera = cameras.FirstOrDefault(c => c.Name.Contains("Logitech", StringComparison.OrdinalIgnoreCase))
-                 ?? cameras[0];
+    var camera = cameras.FirstOrDefault(c => c.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase));
+    if (camera is null)
+    {
+        Console.WriteLine($"FAIL: no camera matching '{nameFilter}'. Available: {string.Join(", ", cameras.Select(c => c.Name))}");
+        return;
+    }
     Console.WriteLine($"Using camera: {camera.Name}");
 
     var service = new CameraCaptureService();
