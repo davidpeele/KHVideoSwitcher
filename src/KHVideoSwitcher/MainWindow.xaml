@@ -62,20 +62,46 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
-                <TextBlock Style="{StaticResource PaneHeader}">
-                    PREVIEW <Run Foreground="#FF4EC94E">— drag to pan, scroll to zoom</Run>
-                </TextBlock>
+                <DockPanel LastChildFill="False">
+                    <TextBlock Style="{StaticResource PaneHeader}" DockPanel.Dock="Left">
+                        PREVIEW <Run Foreground="#FF4EC94E">— drag to pan, scroll or slider to zoom</Run>
+                    </TextBlock>
+                    <CheckBox x:Name="DragModeCheck" DockPanel.Dock="Right" Content="Drag moves picture"
+                              Foreground="#FF888888" VerticalAlignment="Center" Margin="0,0,4,4"
+                              Checked="DragModeCheck_Changed" Unchecked="DragModeCheck_Changed"
+                              ToolTip="Checked: drag right and the picture comes right (grab-the-picture feel). Unchecked: drag moves the crop box / camera instead."/>
+                </DockPanel>
                 <Border Grid.Row="1" Background="Black" CornerRadius="4" BorderBrush="#FF2A6E2A" BorderThickness="2">
-                    <Grid x:Name="PreviewCell" ClipToBounds="True"
-                          MouseWheel="PreviewCell_MouseWheel"
-                          MouseLeftButtonDown="PreviewCell_MouseLeftButtonDown"
-                          MouseLeftButtonUp="PreviewCell_MouseLeftButtonUp"
-                          MouseMove="PreviewCell_MouseMove"
-                          Background="Transparent">
-                        <Image x:Name="PreviewImage" Stretch="Uniform"/>
-                        <Canvas x:Name="PreviewOverlay" IsHitTestVisible="False">
-                            <Rectangle x:Name="CropRectShape" Stroke="#FF4EC94E" StrokeThickness="2" Fill="#184EC94E"/>
-                        </Canvas>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid x:Name="PreviewCell" ClipToBounds="True"
+                              MouseWheel="PreviewCell_MouseWheel"
+                              MouseLeftButtonDown="PreviewCell_MouseLeftButtonDown"
+                              MouseLeftButtonUp="PreviewCell_MouseLeftButtonUp"
+                              MouseMove="PreviewCell_MouseMove"
+                              Background="Transparent">
+                            <Image x:Name="PreviewImage" Stretch="Uniform"/>
+                            <Canvas x:Name="PreviewOverlay" IsHitTestVisible="False">
+                                <Rectangle x:Name="CropRectShape" Stroke="#FF4EC94E" StrokeThickness="2" Fill="#184EC94E"/>
+                            </Canvas>
+                        </Grid>
+                        <Grid Grid.Column="1" Background="#22FFFFFF" Width="44">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="IN" Foreground="#FF888888" FontSize="10" HorizontalAlignment="Center" Margin="0,6,0,2"/>
+                            <Slider x:Name="ZoomSlider" Grid.Row="1" Orientation="Vertical" HorizontalAlignment="Center"
+                                    Minimum="1" Maximum="8" Value="1" SmallChange="0.05" LargeChange="0.5"
+                                    ValueChanged="ZoomSlider_ValueChanged" Margin="0,2"
+                                    ToolTip="Zoom the PREVIEW framing (top = zoomed in)"/>
+                            <TextBlock Grid.Row="2" x:Name="ZoomReadout" Text="1.0x" Foreground="#FF9CDCFE" FontSize="11"
+                                       HorizontalAlignment="Center" Margin="0,2,0,6"/>
+                        </Grid>
                     </Grid>
                 </Border>
             </Grid>

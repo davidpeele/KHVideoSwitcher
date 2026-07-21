@@ -45,6 +45,7 @@ public partial class MainWindow : Window
     private bool _dragging;
     private Point _dragStart;
     private PtzState _dragStartState;
+    private bool _syncingZoomSlider;
 
     private Thread? _composeThread;
     private volatile bool _composeActive;
@@ -81,6 +82,8 @@ public partial class MainWindow : Window
             UpdateSceneButtons();
             UpdateAutoTakeButton();
             UpdateAutoScenesButton();
+            DragModeCheck.IsChecked = _settings.DragMovesPicture;
+            SyncZoomSlider();
             _detector.ImportStock(_settings.StockFingerprint);
         }
         catch (Exception ex)
@@ -524,6 +527,7 @@ public partial class MainWindow : Window
     {
         _previewState = PtzState.FullFrame;
         SetPreviewScene(SceneKind.Camera);
+        SyncZoomSlider();
         TakeIfAuto();
     }
 
@@ -563,6 +567,7 @@ public partial class MainWindow : Window
         _previewState = preset.Ptz;
         SetPreviewScene(preset.Kind);
         UpdateCropOverlay();
+        SyncZoomSlider();
         Take(_settings.FadeMs);
     }
 
@@ -605,6 +610,7 @@ public partial class MainWindow : Window
                 _previewState = PtzState.FullFrame;
                 SetPreviewScene(SceneKind.Camera);
                 UpdateCropOverlay();
+                SyncZoomSlider();
                 TakeIfAuto();
                 e.Handled = true;
                 break;
@@ -691,9 +697,46 @@ public partial class MainWindow : Window
         if (!_camera.IsRunning)
             return;
         double factor = e.Delta > 0 ? 1.1 : 1 / 1.1;
-        _previewState = _previewState with { Zoom = Math.Clamp(_previewState.Zoom * factor, PtzState.MinZoom, PtzState.MaxZoom) };
-        _previewState = _previewState.Clamped();
+        SetPreviewZoom(_previewState.Zoom * factor);
+    }
+
+    private void SetPreviewZoom(double zoom)
+    {
+        _previewState = (_previewState with { Zoom = Math.Clamp(zoom, PtzState.MinZoom, PtzState.MaxZoom) }).Clamped();
         UpdateCropOverlay();
+        SyncZoomSlider();
+    }
+
+    private void SyncZoomSlider()
+    {
+        _syncingZoomSlider = true;
+        try
+        {
+            ZoomSlider.Value = _previewState.Zoom;
+            ZoomReadout.Text = $"{_previewState.Zoom:0.0}x";
+        }
+        finally
+        {
+            _syncingZoomSlider = false;
+        }
+    }
+
+    private void ZoomSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_syncingZoomSlider || ZoomReadout is null)
+            return;
+        _previewState = (_previewState with { Zoom = Math.Clamp(e.NewValue, PtzState.MinZoom, PtzState.MaxZoom) }).Clamped();
+        ZoomReadout.Text = $"{_previewState.Zoom:0.0}x";
+        UpdateCropOverlay();
+    }
+
+    private void DragModeCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (DragModeCheck.IsChecked is { } isChecked && isChecked != _settings.DragMovesPicture)
+        {
+            _settings.DragMovesPicture = isChecked;
+            _settings.Save();
+        }
     }
 
     private void PreviewCell_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -724,10 +767,13 @@ public partial class MainWindow : Window
         double scale = view.Width / _camera.Width;
         double dx = (pos.X - _dragStart.X) / scale / _camera.Width;
         double dy = (pos.Y - _dragStart.Y) / scale / _camera.Height;
+        // "Drag moves picture": pull the image with the mouse (crop moves the
+        // other way). Unchecked: drag moves the crop box / camera directly.
+        double sign = _settings.DragMovesPicture ? -1 : 1;
         _previewState = (_dragStartState with
         {
-            CenterX = _dragStartState.CenterX + dx,
-            CenterY = _dragStartState.CenterY + dy,
+            CenterX = _dragStartState.CenterX + sign * dx,
+            CenterY = _dragStartState.CenterY + sign * dy,
         }).Clamped();
         UpdateCropOverlay();
     }

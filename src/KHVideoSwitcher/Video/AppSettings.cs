@@ -17,6 +17,12 @@ public sealed class AppSettings
     /// <summary>When true, media-state changes switch scenes automatically.</summary>
     public bool AutoScenes { get; set; }
 
+    /// <summary>
+    /// True (default): dragging in PREVIEW moves the picture with the mouse.
+    /// False: dragging moves the crop box / "camera" instead.
+    /// </summary>
+    public bool DragMovesPicture { get; set; } = true;
+
     /// <summary>Base64 luma-grid fingerprint of the stock (yeartext) screen.</summary>
     public string? StockFingerprint { get; set; }
 
