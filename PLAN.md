@@ -86,9 +86,15 @@ early (Phase 2) precisely because it's the biggest technical risk.
 
 ## 3. Virtual PTZ design
 
-- **Source:** a 4K (3840×2160) webcam wide shot; output at 1080p. That gives 2× zoom
-  with zero quality loss, and usable zoom to ~3× before softness shows. (A 1080p camera
-  works but zoom quality will be limited — a 4K camera is the main hardware recommendation.)
+- **Source & output:** the camera's full resolution in, a configurable output resolution
+  out (480p / 720p / 1080p). Kingdom Hall streams typically go out at 720p or even 480p,
+  so even a 1080p camera has real zoom headroom: 1.5× lossless at 720p output, 2.25× at
+  480p. A 4K camera extends that (3× lossless at 720p) but is an upgrade, not a requirement.
+- **No hard zoom cap:** operators may deliberately over-zoom, trading sharpness for
+  better framing. The zoom control shows an advisory quality indicator (green = still
+  lossless for the current output resolution, amber = past 1:1) but never blocks the move.
+- Compositing always happens at full source resolution; downscaling to the output
+  resolution is the final step, so no quality is discarded early.
 - **Model:** PTZ = a crop rectangle over the source frame, locked to 16:9.
   - Pan/tilt = move the rectangle. Zoom = shrink it.
   - The GPU scales the crop to the 1080p output every frame.
@@ -200,7 +206,7 @@ Each phase ends with something you can actually run and test at the Hall.
 | Win11 virtual camera API friction | Tackled first (Phase 2); fallbacks: `softcam` driver, or OBS vcam as a stopgap |
 | Detection misfires (e.g., mostly-still video) | Debounce, tunable thresholds, always-available manual override |
 | GPU/CPU load on the Hall computer | GPU-only pipeline, 1080p30 default output, downscaled analysis frames |
-| 1080p camera limits zoom quality | Works, but recommend a 4K webcam (e.g., Logitech Brio–class) for real PTZ range |
+| 1080p camera limits zoom quality | Streams typically output 720p/480p, so a 1080p camera already has 1.5–2.25× lossless zoom; over-zoom is allowed with an advisory indicator. A 4K webcam is a future upgrade, not a blocker |
 | Project lives in OneDrive | Fine for docs, but build outputs churn OneDrive sync — we'll .gitignore `bin`/`obj`, and can relocate the repo later if sync causes trouble |
 
 ---
@@ -208,7 +214,8 @@ Each phase ends with something you can actually run and test at the Hall.
 ## 7. Open questions (answer whenever — defaults are sensible)
 
 1. **Which webcam** will be used (model/resolution)? Determines realistic zoom range.
-2. **Output format:** 1080p30 is the default — is that what you stream at today?
+2. **Output format:** configurable 480p/720p/1080p; streams typically run 720p or lower,
+   so 720p30 is the likely everyday setting. Default TBD once tested with Zoom at the Hall.
 3. **Display layout at the Hall:** how many monitors does the JW Library PC drive, and
    which one shows media? (The app will let you pick, but it helps to know.)
 4. **Same PC or second PC?** Plan assumes everything (JW Library + this app + Zoom)
