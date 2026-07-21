@@ -99,14 +99,7 @@ public partial class MainWindow : Window
         // Pull the newest media frame if capture is running and fresh.
         if (_display.IsRunning)
         {
-            try
-            {
-                _display.PumpFrames();
-            }
-            catch
-            {
-                // Window closed mid-capture etc.; stale handling below covers it.
-            }
+            _display.PumpFrames();
             if (_display.LastFrameAgeMs <= MediaStaleMs &&
                 _display.TryCopyLatestFrame(ref _mediaFrame, out var mw, out var mh))
             {
@@ -577,7 +570,8 @@ public partial class MainWindow : Window
                 program = _programScene;
             }
             var media = !_display.IsRunning ? "off"
-                : _display.LastFrameAgeMs > MediaStaleMs ? "stale"
+                : _display.LastError is not null ? $"ERROR — {_display.LastError}"
+                : _display.LastFrameAgeMs > MediaStaleMs ? "no frames (is the window minimized?)"
                 : $"{_display.Width}x{_display.Height}";
             StatusText.Text = $"{fmt}   |   live: {fps} fps   |   program: {program.Kind} {program.Ptz.Zoom:0.0}x" +
                               $"   |   media: {media}" +

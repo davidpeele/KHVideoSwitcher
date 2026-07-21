@@ -29,6 +29,12 @@ if (args.Length > 0 && args[0].Equals("ptztest", StringComparison.OrdinalIgnoreC
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("wgctest", StringComparison.OrdinalIgnoreCase))
+{
+    await RunWgcTestAsync(args.Length > 1 ? args[1] : "Notepad", args.Length > 2 ? args[2] : "wgc-test.png");
+    return;
+}
+
 Console.WriteLine("=== KH Video Switcher — Device Check ===\n");
 
 Console.WriteLine("Video capture devices (Windows.Devices.Enumeration):");
@@ -75,6 +81,67 @@ foreach (var dev in monitorDevices)
 }
 
 Console.WriteLine("\nDevice check complete.");
+
+// Window/monitor capture test: captures the first target whose name contains
+// the filter, pumps frames for 3 seconds, reports errors verbatim, saves a PNG.
+static async Task RunWgcTestAsync(string nameFilter, string outputPath)
+{
+    Console.WriteLine("=== KH Video Switcher — Display Capture Test ===\n");
+
+    var targets = KHVideoSwitcher.Capture.DisplayCaptureService.ListTargets();
+    Console.WriteLine($"Targets ({targets.Count}):");
+    foreach (var t in targets)
+        Console.WriteLine($"  {t}");
+
+    var target = targets.FirstOrDefault(t => t.Name.Contains(nameFilter, StringComparison.OrdinalIgnoreCase));
+    if (target is null)
+    {
+        Console.WriteLine($"\nFAIL: no target matching '{nameFilter}'.");
+        return;
+    }
+    Console.WriteLine($"\nCapturing: {target}");
+
+    using var svc = new KHVideoSwitcher.Capture.DisplayCaptureService();
+    try
+    {
+        svc.Start(target);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"START FAILED: {ex}");
+        return;
+    }
+
+    byte[] frame = [];
+    int gotW = 0, gotH = 0;
+    for (var i = 0; i < 90; i++)
+    {
+        await Task.Delay(33);
+        try
+        {
+            svc.PumpFrames();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"PUMP FAILED (iteration {i}): {ex}");
+            return;
+        }
+        if (svc.TryCopyLatestFrame(ref frame, out gotW, out gotH) && i == 45)
+            Console.WriteLine($"  mid-run: receiving {gotW}x{gotH}, age {svc.LastFrameAgeMs} ms");
+    }
+
+    if (gotW == 0)
+    {
+        Console.WriteLine($"FAIL: no frames received in 3s (age: {svc.LastFrameAgeMs} ms).");
+        return;
+    }
+
+    long sum = 0;
+    for (var i = 0; i < frame.Length; i += 2003) sum += frame[i];
+    Console.WriteLine($"Received {gotW}x{gotH}; sample sum {sum} ({(sum == 0 ? "ALL BLACK" : "has content")})");
+    await SavePngAsync(frame, gotW, gotH, outputPath);
+    Console.WriteLine($"Saved {Path.GetFullPath(outputPath)}");
+}
 
 // PTZ compositor test: captures the webcam, renders three framings
 // (wide, 2x zoom left, mid-crossfade), and saves each as a PNG.

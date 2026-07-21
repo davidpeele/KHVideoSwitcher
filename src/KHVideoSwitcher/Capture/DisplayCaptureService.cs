@@ -9,7 +9,7 @@ using IDirect3DDevice = Windows.Graphics.DirectX.Direct3D11.IDirect3DDevice;
 
 namespace KHVideoSwitcher.Capture;
 
-public sealed record CaptureTarget(string Name, IntPtr Handle, bool IsMonitor)
+public sealed record CaptureTarget(string Name, IntPtr Handle, bool IsMonitor, int Width = 0, int Height = 0)
 {
     public override string ToString() => (IsMonitor ? "Display: " : "Window: ") + Name;
 }
@@ -48,6 +48,9 @@ public sealed class DisplayCaptureService : IDisposable
     public long LastFrameAgeMs => _lastFrameMs == 0 ? long.MaxValue : Environment.TickCount64 - _lastFrameMs;
     public string? TargetName { get; private set; }
 
+    /// <summary>Human-readable reason frames stopped (window closed, pump error), or null.</summary>
+    public string? LastError { get; private set; }
+
     // ---------- enumeration ----------
 
     public static IReadOnlyList<CaptureTarget> ListTargets()
@@ -76,7 +79,16 @@ public sealed class DisplayCaptureService : IDisposable
 
             var sb = new StringBuilder(len + 1);
             GetWindowTextW(hwnd, sb, sb.Capacity);
-            targets.Add(new CaptureTarget(sb.ToString(), hwnd, false));
+
+            int ww = 0, wh = 0;
+            var size = "";
+            if (GetWindowRect(hwnd, out var wr))
+            {
+                ww = wr.right - wr.left;
+                wh = wr.bottom - wr.top;
+                size = $" ({ww}x{wh})";
+            }
+            targets.Add(new CaptureTarget($"{sb}{size}", hwnd, false, ww, wh));
             return true;
         }, IntPtr.Zero);
 
@@ -85,16 +97,33 @@ public sealed class DisplayCaptureService : IDisposable
         {
             monitorIndex++;
             targets.Add(new CaptureTarget(
-                $"Monitor {monitorIndex} ({rect.right - rect.left}x{rect.bottom - rect.top})", hMonitor, true));
+                $"Monitor {monitorIndex} ({rect.right - rect.left}x{rect.bottom - rect.top})", hMonitor, true,
+                rect.right - rect.left, rect.bottom - rect.top));
             return true;
         }, IntPtr.Zero);
 
         return targets;
     }
 
-    /// <summary>Best-guess JW Library media target from a target list.</summary>
-    public static CaptureTarget? FindJwLibraryMediaTarget(IReadOnlyList<CaptureTarget> targets) =>
-        targets.FirstOrDefault(t => !t.IsMonitor && t.Name.Contains("JW Library", StringComparison.OrdinalIgnoreCase));
+    /// <summary>
+    /// Best-guess JW Library media target. When JW Library shows two windows
+    /// (main + media), the media window is the one sized like a whole monitor
+    /// when fullscreen; otherwise prefer the last-enumerated (most recently
+    /// created) JW window.
+    /// </summary>
+    public static CaptureTarget? FindJwLibraryMediaTarget(IReadOnlyList<CaptureTarget> targets)
+    {
+        var jw = targets.Where(t => !t.IsMonitor && t.Name.Contains("JW Library", StringComparison.OrdinalIgnoreCase)).ToList();
+        if (jw.Count == 0)
+            return null;
+        if (jw.Count == 1)
+            return jw[0];
+
+        var monitors = targets.Where(t => t.IsMonitor).ToList();
+        var fullscreen = jw.FirstOrDefault(w =>
+            monitors.Any(m => Math.Abs(m.Width - w.Width) <= 4 && Math.Abs(m.Height - w.Height) <= 4));
+        return fullscreen ?? jw[^1];
+    }
 
     // ---------- capture ----------
 
@@ -117,6 +146,8 @@ public sealed class DisplayCaptureService : IDisposable
             Marshal.Release(abi);
         }
 
+        _item.Closed += (_, _) => LastError = "The captured window was closed (JW Library recreates its media window when switching between windowed and fullscreen — reselect and capture again).";
+
         _poolSize = _item.Size;
         _framePool = Direct3D11CaptureFramePool.CreateFreeThreaded(
             _winrtDevice, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, _poolSize);
@@ -131,6 +162,7 @@ public sealed class DisplayCaptureService : IDisposable
         }
         _session.StartCapture();
         TargetName = target.Name;
+        LastError = null;
     }
 
     public void Stop()
@@ -144,34 +176,41 @@ public sealed class DisplayCaptureService : IDisposable
         _lastFrameMs = 0;
     }
 
-    /// <summary>Drains pending frames, keeping the newest. Call once per compose tick.</summary>
+    /// <summary>Drains pending frames, keeping the newest. Call once per compose tick. Never throws.</summary>
     public void PumpFrames()
     {
-        var pool = _framePool;
-        if (pool is null)
-            return;
-
-        Direct3D11CaptureFrame? newest = null;
-        while (pool.TryGetNextFrame() is { } frame)
+        try
         {
-            newest?.Dispose();
-            newest = frame;
-        }
-        if (newest is null)
-            return;
+            var pool = _framePool;
+            if (pool is null)
+                return;
 
-        using (newest)
-        {
-            // Window resized: recreate the pool at the new size; this frame is
-            // still valid at its stated content size.
-            var content = newest.ContentSize;
-            if (content.Width != _poolSize.Width || content.Height != _poolSize.Height)
+            Direct3D11CaptureFrame? newest = null;
+            while (pool.TryGetNextFrame() is { } frame)
             {
-                _poolSize = content;
-                pool.Recreate(_winrtDevice, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, content);
+                newest?.Dispose();
+                newest = frame;
             }
+            if (newest is null)
+                return;
 
-            CopyFrameToBuffer(newest);
+            using (newest)
+            {
+                // Window resized: recreate the pool at the new size; this frame is
+                // still valid at its stated content size.
+                var content = newest.ContentSize;
+                if (content.Width != _poolSize.Width || content.Height != _poolSize.Height)
+                {
+                    _poolSize = content;
+                    pool.Recreate(_winrtDevice, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, content);
+                }
+
+                CopyFrameToBuffer(newest);
+            }
+        }
+        catch (Exception ex)
+        {
+            LastError = $"Capture error: {ex.Message}";
         }
     }
 
@@ -333,6 +372,9 @@ public sealed class DisplayCaptureService : IDisposable
 
     [DllImport("user32")]
     private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
     [DllImport("user32", CharSet = CharSet.Unicode)]
     private static extern int GetWindowTextW(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
