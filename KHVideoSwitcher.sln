@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{24EECAE4-F3E6-41F2-B7C9-6969E331CB20}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KHVideoSwitcher", "src\KHVideoSwitcher\KHVideoSwitcher.csproj", "{C3435426-7364-470D-BE5C-79AD3CE2D254}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{529C4B9C-544A-46CC-AF10-F7318D267913}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DeviceCheck", "tools\DeviceCheck\DeviceCheck.csproj", "{04687BF7-8D74-413B-8D0B-3852C3BE5655}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C3435426-7364-470D-BE5C-79AD3CE2D254}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3435426-7364-470D-BE5C-79AD3CE2D254}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3435426-7364-470D-BE5C-79AD3CE2D254}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3435426-7364-470D-BE5C-79AD3CE2D254}.Release|Any CPU.Build.0 = Release|Any CPU
+		{04687BF7-8D74-413B-8D0B-3852C3BE5655}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{04687BF7-8D74-413B-8D0B-3852C3BE5655}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{04687BF7-8D74-413B-8D0B-3852C3BE5655}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{04687BF7-8D74-413B-8D0B-3852C3BE5655}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C3435426-7364-470D-BE5C-79AD3CE2D254} = {24EECAE4-F3E6-41F2-B7C9-6969E331CB20}
+		{04687BF7-8D74-413B-8D0B-3852C3BE5655} = {529C4B9C-544A-46CC-AF10-F7318D267913}
+	EndGlobalSection
+EndGlobal
