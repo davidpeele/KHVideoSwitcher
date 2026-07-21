@@ -10,6 +10,10 @@ param(
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
+if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+    $env:Path += ";$env:ProgramFiles\dotnet"
+}
+
 if (Test-Path $OutDir) { Remove-Item -Recurse -Force $OutDir }
 New-Item -ItemType Directory -Force "$OutDir\app" | Out-Null
 New-Item -ItemType Directory -Force "$OutDir\vcam" | Out-Null
