@@ -26,6 +26,10 @@ public sealed class AppSettings
     /// <summary>Base64 luma-grid fingerprint of the stock (yeartext) screen.</summary>
     public string? StockFingerprint { get; set; }
 
+    /// <summary>Last used camera / media capture target, restored at startup.</summary>
+    public string? LastCameraName { get; set; }
+    public string? LastMediaTargetName { get; set; }
+
     private static string Dir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "KHVideoSwitcher");
     private static string FilePath => Path.Combine(Dir, "settings.json");

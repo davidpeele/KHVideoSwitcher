@@ -50,6 +50,8 @@ public partial class MainWindow : Window
     private Thread? _composeThread;
     private volatile bool _composeActive;
     private bool _haveCameraFrame;
+    private int _cameraStalledSeconds;
+    private bool _cameraRecovering;
 
     public MainWindow()
     {
@@ -70,7 +72,8 @@ public partial class MainWindow : Window
             if (cameras.Count > 0)
             {
                 CameraCombo.SelectedItem =
-                    cameras.FirstOrDefault(c => c.Name.Contains("Logitech", StringComparison.OrdinalIgnoreCase))
+                    cameras.FirstOrDefault(c => c.Name == _settings.LastCameraName)
+                    ?? cameras.FirstOrDefault(c => c.Name.Contains("Logitech", StringComparison.OrdinalIgnoreCase))
                     ?? cameras[0];
                 StartStopButton.IsEnabled = true;
             }
@@ -287,6 +290,8 @@ public partial class MainWindow : Window
                 StatusText.Text = $"{cam.Name} — {format}";
                 UpdateCropOverlay();
                 StartComposeLoop();
+                _settings.LastCameraName = cam.Name;
+                _settings.Save();
             }
         }
         catch (UnauthorizedAccessException)
@@ -345,6 +350,7 @@ public partial class MainWindow : Window
         MediaCombo.ItemsSource = targets;
         MediaCombo.SelectedItem =
             targets.FirstOrDefault(t => t.Name == selectedName)
+            ?? targets.FirstOrDefault(t => t.Name == _settings.LastMediaTargetName)
             ?? DisplayCaptureService.FindJwLibraryMediaTarget(targets)
             ?? targets.FirstOrDefault(t => t.IsMonitor && !Equals(t, targets.FirstOrDefault(m => m.IsMonitor))); // second monitor
     }
@@ -365,6 +371,8 @@ public partial class MainWindow : Window
                 MediaCaptureButton.Content = "Capturing…";
                 MediaCombo.IsEnabled = false;
                 StatusText.Text = $"Capturing: {target.Name}";
+                _settings.LastMediaTargetName = target.Name;
+                _settings.Save();
             }
             else
             {
@@ -785,6 +793,18 @@ public partial class MainWindow : Window
         long total = _camera.FramesReceived;
         long fps = total - _lastFrameCount;
         _lastFrameCount = total;
+
+        // Camera watchdog: a camera that stops delivering (USB glitch,
+        // unplug/replug) gets restarted automatically.
+        if (_camera.IsRunning && !_cameraRecovering)
+        {
+            _cameraStalledSeconds = fps == 0 ? _cameraStalledSeconds + 1 : 0;
+            if (_cameraStalledSeconds >= 5)
+            {
+                _cameraStalledSeconds = 0;
+                _ = RecoverCameraAsync();
+            }
+        }
         if (_camera.IsRunning && _camera.ActiveFormat is { } fmt)
         {
             Scene program;
@@ -802,6 +822,29 @@ public partial class MainWindow : Window
             StatusText.Text = $"{fmt}   |   live: {fps} fps   |   program: {program.Kind} {program.Ptz.Zoom:0.0}x" +
                               $"   |   media: {media}{detect}" +
                               (_vcamOn ? "   |   virtual camera: ON" : "");
+        }
+    }
+
+    private async Task RecoverCameraAsync()
+    {
+        if (_cameraRecovering || CameraCombo.SelectedItem is not CameraInfo cam)
+            return;
+        _cameraRecovering = true;
+        try
+        {
+            StatusText.Text = "Camera stopped delivering frames — restarting it…";
+            await _camera.StopAsync();
+            await Task.Delay(500);
+            var format = await _camera.StartAsync(cam);
+            StatusText.Text = $"Camera recovered: {cam.Name} — {format}";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Camera restart failed ({ex.Message}) — will retry if it stays stalled.";
+        }
+        finally
+        {
+            _cameraRecovering = false;
         }
     }
 
