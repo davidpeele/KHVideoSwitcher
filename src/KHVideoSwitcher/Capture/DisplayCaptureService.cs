@@ -129,6 +129,15 @@ public sealed class DisplayCaptureService : IDisposable
 
     public void Start(CaptureTarget target)
     {
+        // The capture objects must live in the MTA: created on an STA (UI)
+        // thread their wrappers can't be used from the frame-pump thread
+        // ("COM object separated from its underlying RCW").
+        if (Thread.CurrentThread.GetApartmentState() == ApartmentState.STA)
+        {
+            Task.Run(() => Start(target)).GetAwaiter().GetResult();
+            return;
+        }
+
         Stop();
         EnsureDevice();
 
@@ -167,6 +176,13 @@ public sealed class DisplayCaptureService : IDisposable
 
     public void Stop()
     {
+        if (Thread.CurrentThread.GetApartmentState() == ApartmentState.STA &&
+            (_session is not null || _framePool is not null))
+        {
+            Task.Run(Stop).GetAwaiter().GetResult();
+            return;
+        }
+
         _session?.Dispose();
         _session = null;
         _framePool?.Dispose();

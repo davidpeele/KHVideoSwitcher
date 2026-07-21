@@ -35,6 +35,64 @@ if (args.Length > 0 && args[0].Equals("wgctest", StringComparison.OrdinalIgnoreC
     return;
 }
 
+// Same as wgctest but Start() runs on an STA thread (like the WPF UI thread)
+// while frames are pumped from an MTA thread (like the camera callback thread).
+if (args.Length > 0 && args[0].Equals("wgcsta", StringComparison.OrdinalIgnoreCase))
+{
+    var filter = args.Length > 1 ? args[1] : "Notepad";
+    var output = args.Length > 2 ? args[2] : "wgc-sta.png";
+
+    var targets = KHVideoSwitcher.Capture.DisplayCaptureService.ListTargets();
+    var target = targets.FirstOrDefault(t => t.Name.Contains(filter, StringComparison.OrdinalIgnoreCase));
+    if (target is null)
+    {
+        Console.WriteLine($"FAIL: no target matching '{filter}'.");
+        return;
+    }
+    Console.WriteLine($"Capturing (STA start): {target}");
+
+    using var svc = new KHVideoSwitcher.Capture.DisplayCaptureService();
+    Exception? startError = null;
+    var started = new ManualResetEventSlim();
+    var staThread = new Thread(() =>
+    {
+        try
+        {
+            svc.Start(target);
+        }
+        catch (Exception ex)
+        {
+            startError = ex;
+        }
+        started.Set();
+        Thread.Sleep(5000); // keep the STA thread alive like a UI thread
+    });
+    staThread.SetApartmentState(ApartmentState.STA);
+    staThread.Start();
+    started.Wait();
+    if (startError is not null)
+    {
+        Console.WriteLine($"START FAILED: {startError}");
+        return;
+    }
+
+    byte[] staFrame = [];
+    int sw = 0, sh = 0;
+    for (var i = 0; i < 90; i++)
+    {
+        await Task.Delay(33).ConfigureAwait(false); // stay off the STA thread
+        svc.PumpFrames();
+        svc.TryCopyLatestFrame(ref staFrame, out sw, out sh);
+    }
+    Console.WriteLine($"Result: {sw}x{sh}, age {svc.LastFrameAgeMs} ms, error: {svc.LastError ?? "none"}");
+    if (sw > 0)
+    {
+        await SavePngAsync(staFrame, sw, sh, output);
+        Console.WriteLine($"Saved {Path.GetFullPath(output)}");
+    }
+    return;
+}
+
 Console.WriteLine("=== KH Video Switcher — Device Check ===\n");
 
 Console.WriteLine("Video capture devices (Windows.Devices.Enumeration):");
