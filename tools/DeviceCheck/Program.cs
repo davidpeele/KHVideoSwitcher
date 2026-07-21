@@ -162,6 +162,20 @@ static async Task RunDetectTestAsync()
     {
         rng.NextBytes(frame);
     }
+    // Calm video scene: only a small region (like a speaker's face) changes.
+    void MutateSmallRegion()
+    {
+        for (var y = 60; y < 100; y++)
+        {
+            for (var x = 100; x < 140; x++)
+            {
+                int i = (y * w + x) * 4;
+                frame[i] = (byte)rng.Next(256);
+                frame[i + 1] = (byte)rng.Next(256);
+                frame[i + 2] = (byte)rng.Next(256);
+            }
+        }
+    }
     void FillSolid(byte b, byte g, byte r)
     {
         for (var i = 0; i < frame.Length; i += 4)
@@ -173,18 +187,17 @@ static async Task RunDetectTestAsync()
         }
     }
 
-    async Task<KHVideoSwitcher.Video.MediaState> RunPhaseAsync(string name, int ms, bool noise)
+    async Task<KHVideoSwitcher.Video.MediaState> RunPhaseAsync(string name, int ms, Action? mutatePerTick)
     {
         var end = Environment.TickCount64 + ms;
         KHVideoSwitcher.Video.MediaState state = default;
         while (Environment.TickCount64 < end)
         {
-            if (noise)
-                FillNoise();
+            mutatePerTick?.Invoke();
             state = detector.Analyze(frame, w, h);
             await Task.Delay(33);
         }
-        Console.WriteLine($"{name}: state={state} (motion {detector.LastMotion:0.0})");
+        Console.WriteLine($"{name}: state={state} (moved cells {detector.LastMotion:0})");
         return state;
     }
 
@@ -197,18 +210,18 @@ static async Task RunDetectTestAsync()
         }
     }
 
-    // 1. Motion => Video.
-    var s = await RunPhaseAsync("1. moving frames 2s", 2000, noise: true);
-    Check("video detection", s, KHVideoSwitcher.Video.MediaState.Video);
+    // 1. CALM video (only a small region moves, like a talking head) => Video.
+    FillSolid(20, 40, 60);
+    var s = await RunPhaseAsync("1. calm video (small region) 2.5s", 2500, MutateSmallRegion);
+    Check("calm video detection", s, KHVideoSwitcher.Video.MediaState.Video);
 
-    // 2. Static mid-video (scripture card), no stock set => stays LATCHED as
-    //    Video for a good while.
+    // 2. Static mid-video (scripture card), no stock set => stays LATCHED.
     FillSolid(30, 60, 90);
-    s = await RunPhaseAsync("2. static 4s during video (latch)", 4000, noise: false);
+    s = await RunPhaseAsync("2. static 4s during video (latch)", 4000, null);
     Check("video latch through still segment", s, KHVideoSwitcher.Video.MediaState.Video);
 
     // 2b. Without a stock fingerprint, a very long stillness eventually exits.
-    s = await RunPhaseAsync("2b. static 5 more sec (no-stock fallback)", 5000, noise: false);
+    s = await RunPhaseAsync("2b. static 5 more sec (no-stock fallback)", 5000, null);
     Check("no-stock long-still fallback", s, KHVideoSwitcher.Video.MediaState.Still);
 
     // 3. Fingerprint this static frame as stock => NoMedia.
@@ -217,45 +230,47 @@ static async Task RunDetectTestAsync()
         Console.WriteLine("  FAIL: could not capture stock fingerprint");
         failures++;
     }
-    s = await RunPhaseAsync("3. same static, fingerprinted, 2s", 2000, noise: false);
+    s = await RunPhaseAsync("3. same static, fingerprinted, 2s", 2000, null);
     Check("no-media detection", s, KHVideoSwitcher.Video.MediaState.NoMedia);
 
-    // 4. Motion resumes => Video quickly.
-    s = await RunPhaseAsync("4. moving frames 1.5s", 1500, noise: true);
+    // 4. Full-motion video => Video quickly.
+    s = await RunPhaseAsync("4. busy video 1.5s", 1500, FillNoise);
     Check("video re-detection", s, KHVideoSwitcher.Video.MediaState.Video);
 
-    // 5. With stock set, a static NON-stock frame keeps the latch forever…
+    // 5. With stock set, a static NON-stock frame keeps the latch…
     FillSolid(200, 180, 120);
-    s = await RunPhaseAsync("5. static non-stock 8s (latched)", 8000, noise: false);
+    s = await RunPhaseAsync("5. static non-stock 8s (latched)", 8000, null);
     Check("video latch holds with stock set", s, KHVideoSwitcher.Video.MediaState.Video);
 
     // 6. …until the stock screen appears => NoMedia.
     FillSolid(30, 60, 90);
-    s = await RunPhaseAsync("6. stock screen 4s", 4000, noise: false);
+    s = await RunPhaseAsync("6. stock screen 4s", 4000, null);
     Check("stock screen releases the latch", s, KHVideoSwitcher.Video.MediaState.NoMedia);
 
-    // 7. From NoMedia, a different static image => Still (normal path).
+    // 7. From NoMedia, a different static image => Still (normal path; the
+    //    one-frame swap must NOT read as video).
     FillSolid(120, 90, 200);
-    s = await RunPhaseAsync("7. different static 3s", 3000, noise: false);
+    s = await RunPhaseAsync("7. different static 3s", 3000, null);
     Check("still (non-stock) detection", s, KHVideoSwitcher.Video.MediaState.Still);
 
-    // 8. Back to stock, then a LYRIC VIDEO: a new "line" (small change) every
-    //    ~2s over a static background => must classify as Video.
-    FillSolid(30, 60, 90);
-    await RunPhaseAsync("8. stock again 3s", 3000, noise: false);
-    for (var line = 0; line < 5; line++)
+    // 8. Slow sing-along lyric pattern (a line change every ~2s) stays Still —
+    //    by design: the operator takes MEDIA manually for songs, and because
+    //    the state never flaps, that manual choice sticks.
+    var lyricStates = new HashSet<KHVideoSwitcher.Video.MediaState>();
+    for (var line = 0; line < 4; line++)
     {
-        FillSolid((byte)(50 + line * 25), (byte)(70 + line * 10), 110); // lyric line appears
-        detector.Analyze(frame, w, h);
+        FillSolid((byte)(50 + line * 25), (byte)(70 + line * 10), 110);
+        lyricStates.Add(detector.Analyze(frame, w, h));
         await Task.Delay(33);
-        s = await RunPhaseAsync($"   lyric line {line + 1}, then 2s hold", 2000, noise: false);
+        s = await RunPhaseAsync($"8.{line + 1} lyric line, 2s hold", 2000, null);
+        lyricStates.Add(s);
     }
-    Check("lyric video detection", s, KHVideoSwitcher.Video.MediaState.Video);
-
-    // 9. Lyric video ends at the stock screen => NoMedia again.
-    FillSolid(30, 60, 90);
-    s = await RunPhaseAsync("9. stock screen 4s", 4000, noise: false);
-    Check("stock releases lyric latch", s, KHVideoSwitcher.Video.MediaState.NoMedia);
+    Check("slow lyrics stay Still (manual MEDIA sticks)", s, KHVideoSwitcher.Video.MediaState.Still);
+    if (lyricStates.Count != 1)
+    {
+        Console.WriteLine($"  FAIL: lyric phase flapped between states: {string.Join(", ", lyricStates)}");
+        failures++;
+    }
 
     Console.WriteLine(failures == 0 ? "\nAll detector checks PASSED." : $"\n{failures} detector check(s) FAILED.");
 }

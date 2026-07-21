@@ -29,9 +29,12 @@ public sealed class MediaStateDetector
     public const int GridH = 36;
     public const int GridLen = GridW * GridH;
 
-    // Screen captures are pixel-exact, so a static screen diffs at ~0;
-    // any real playback motion lands far above this.
-    private const double MotionThreshold = 0.8;
+    // A tick is "moving" when enough grid CELLS changed. Cell-count (not
+    // frame-average) keeps calm scenes detectable: a talking head changes a
+    // small cluster of cells every frame, which a frame-wide mean dilutes.
+    // Screen captures are pixel-exact, so a static screen changes 0 cells.
+    private const int CellDiffThreshold = 6;  // luma delta for a cell to count as changed
+    private const int MovedCellsNeeded = 4;   // of 2304 cells
     private const int VideoStickyMs = 1500;   // sustained motion this recent still counts as video
     private const double StockTolerance = 3.0;
     private const int EnterVideoMs = 250;     // react to video fast
@@ -41,17 +44,10 @@ public sealed class MediaStateDetector
     // within the last MotionRingSize ticks (~1.5s at 30fps). A still image
     // swap (1 changed frame) or JW Library's image fade-in (~0.5s) stays far
     // below this; real playback is continuous and clears it easily.
+    // Sing-along lyric videos change too rarely to qualify — the operator
+    // taps MEDIA at song start and the video latch holds from there.
     private const int MotionRingSize = 45;
     private const int MotionTicksNeeded = 25;
-
-    // Lyric/song videos (sjjm sing-along) show a static background where a
-    // lyric line fades in every few seconds: bursts of motion separated by
-    // long stills. A burst that follows >= EventGapTicks of stillness counts
-    // as one "change event"; several distinct events within the window can
-    // only be a playing video — a real still image changes exactly once.
-    private const int EventGapTicks = 25;     // ~0.8s of stillness separates events
-    private const int EventsNeeded = 3;
-    private const int EventWindowMs = 12000;
 
     // Videos often hold a static frame for a while (scripture references,
     // title cards). Once Video is active it is LATCHED: stills don't end it —
@@ -70,8 +66,6 @@ public sealed class MediaStateDetector
     private readonly bool[] _motionRing = new bool[MotionRingSize];
     private int _motionRingIndex;
     private int _motionRingCount;
-    private int _stillRunTicks;
-    private readonly Queue<long> _changeEvents = new();
     private MediaState _active = MediaState.NoFeed;
     private MediaState _candidate = MediaState.NoFeed;
     private long _candidateSinceMs;
@@ -91,16 +85,16 @@ public sealed class MediaStateDetector
             SampleLumaGrid(bgra, width, height, current);
             var previous = _latestIsA ? _gridA : _gridB;
 
-            double motion = 0;
+            int movedCells = 0;
             if (_havePrev)
-                motion = MeanAbsDiff(current, previous);
-            LastMotion = motion;
+                movedCells = CountMovedCells(current, previous);
+            LastMotion = movedCells;
 
             _latestIsA = !_latestIsA;
             var hadPrev = _havePrev;
             _havePrev = true;
 
-            bool moving = hadPrev && motion > MotionThreshold;
+            bool moving = hadPrev && movedCells >= MovedCellsNeeded;
             if (moving)
                 _lastMotionMs = now;
 
@@ -112,33 +106,10 @@ public sealed class MediaStateDetector
                 _motionRingCount++;
             _motionRingIndex = (_motionRingIndex + 1) % MotionRingSize;
 
-            bool stockMatch = _stock is not null && MeanAbsDiff(current, _stock) <= StockTolerance;
-
-            // Distinct change events (lyric lines appearing, slide changes).
-            bool newEvent = false;
-            if (moving)
-            {
-                if (_stillRunTicks >= EventGapTicks && !stockMatch)
-                {
-                    _changeEvents.Enqueue(now);
-                    while (_changeEvents.Count > 16)
-                        _changeEvents.Dequeue();
-                    newEvent = true;
-                }
-                _stillRunTicks = 0;
-            }
-            else
-            {
-                _stillRunTicks++;
-            }
-            while (_changeEvents.Count > 0 && now - _changeEvents.Peek() > EventWindowMs)
-                _changeEvents.Dequeue();
-
-            // Video presence is asserted by sustained motion, or by a NEW
-            // change event when enough distinct events are in the window
-            // (lyric videos). A quiet window must not keep refreshing it.
-            if (_motionRingCount >= MotionTicksNeeded || (newEvent && _changeEvents.Count >= EventsNeeded))
+            if (_motionRingCount >= MotionTicksNeeded)
                 _lastSustainedMs = now;
+
+            bool stockMatch = _stock is not null && MeanAbsDiff(current, _stock) <= StockTolerance;
 
             MediaState candidate;
             if (hadPrev && _lastSustainedMs != long.MinValue && now - _lastSustainedMs <= VideoStickyMs)
@@ -148,9 +119,6 @@ public sealed class MediaStateDetector
             else if (stockMatch)
             {
                 candidate = MediaState.NoMedia;
-                // The stock screen ends the current media item: change events
-                // must not accumulate across separate items.
-                _changeEvents.Clear();
             }
             else
             {
@@ -177,8 +145,6 @@ public sealed class MediaStateDetector
             _havePrev = false;
             Array.Clear(_motionRing);
             _motionRingCount = 0;
-            _stillRunTicks = 0;
-            _changeEvents.Clear();
             return Debounce(MediaState.NoFeed, Environment.TickCount64);
         }
     }
@@ -253,6 +219,17 @@ public sealed class MediaStateDetector
                 grid[gy * GridW + gx] = (byte)((bgra[i] + 2 * bgra[i + 1] + bgra[i + 2]) >> 2);
             }
         }
+    }
+
+    private static int CountMovedCells(byte[] a, byte[] b)
+    {
+        var count = 0;
+        for (var i = 0; i < a.Length; i++)
+        {
+            if (Math.Abs(a[i] - b[i]) > CellDiffThreshold)
+                count++;
+        }
+        return count;
     }
 
     private static double MeanAbsDiff(byte[] a, byte[] b)
