@@ -509,12 +509,50 @@ public partial class MainWindow : Window
         if (_detector.TryCaptureStock(out var base64))
         {
             _settings.StockFingerprint = base64;
+            _settings.StockTargetName = StripSizeSuffix(_display.TargetName);
             _settings.Save();
             StatusText.Text = "Stock (no media) screen fingerprinted — automatic switching will treat this screen as NO MEDIA.";
+            UpdateStockReminder();
         }
         else
         {
             StatusText.Text = "No media frame available yet — start Capture first, with the yeartext screen showing.";
+        }
+    }
+
+    /// <summary>"JW Library (528x358)" -> "JW Library" (windows resize; identity doesn't).</summary>
+    private static string? StripSizeSuffix(string? name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return name;
+        int i = name.LastIndexOf(" (", StringComparison.Ordinal);
+        return i > 0 ? name[..i] : name;
+    }
+
+    /// <summary>Why Set Stock deserves attention right now, or null if all is well.</summary>
+    private string? GetStockReminder()
+    {
+        if (!_display.IsRunning || _display.LastError is not null)
+            return null;
+        if (!_detector.HasStock)
+            return "Set Stock not done: show the yeartext screen and click Set Stock so AUTO can recognize 'no media'";
+        if (!string.IsNullOrEmpty(_settings.StockTargetName) &&
+            !string.Equals(StripSizeSuffix(_display.TargetName), _settings.StockTargetName, StringComparison.Ordinal))
+            return "Media source changed since Set Stock: show the yeartext and click Set Stock again";
+        return null;
+    }
+
+    private void UpdateStockReminder()
+    {
+        if (GetStockReminder() is not null)
+        {
+            StockButton.Background = new SolidColorBrush(Color.FromRgb(0xB5, 0x76, 0x14));
+            StockButton.Foreground = Brushes.White;
+        }
+        else
+        {
+            StockButton.ClearValue(Button.BackgroundProperty);
+            StockButton.ClearValue(Button.ForegroundProperty);
         }
     }
 
@@ -875,10 +913,12 @@ public partial class MainWindow : Window
             var detect = _display.IsRunning
                 ? $"   |   detect: {_detector.State}{(_settings.AutoScenes ? " → AUTO" : "")}"
                 : "";
+            var reminder = GetStockReminder() is { } hint ? $"   |   ⚠ {hint}" : "";
             StatusText.Text = $"{fmt}   |   live: {fps} fps   |   program: {program.Kind} {program.Ptz.Zoom:0.0}x" +
                               $"   |   media: {media}{detect}" +
-                              (_vcamOn ? "   |   virtual camera: ON" : "");
+                              (_vcamOn ? "   |   virtual camera: ON" : "") + reminder;
         }
+        UpdateStockReminder();
     }
 
     private async Task RecoverCameraAsync()

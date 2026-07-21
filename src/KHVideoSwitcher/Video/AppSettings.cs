@@ -26,6 +26,9 @@ public sealed class AppSettings
     /// <summary>Base64 luma-grid fingerprint of the stock (yeartext) screen.</summary>
     public string? StockFingerprint { get; set; }
 
+    /// <summary>Capture target (size suffix stripped) the stock fingerprint was taken from.</summary>
+    public string? StockTargetName { get; set; }
+
     /// <summary>Last used camera / media capture target, restored at startup.</summary>
     public string? LastCameraName { get; set; }
     public string? LastMediaTargetName { get; set; }
