@@ -166,11 +166,11 @@ public sealed class PtzCompositor : IDisposable
                 break;
 
             case SceneKind.Media:
-                DrawMediaLetterboxed(opacity);
+                DrawMediaFilled(opacity);
                 break;
 
             case SceneKind.OverShoulder:
-                DrawMediaLetterboxed(opacity);
+                DrawMediaFilled(opacity);
                 DrawCameraInset(scene.Ptz, opacity);
                 break;
         }
@@ -187,7 +187,7 @@ public sealed class PtzCompositor : IDisposable
             D2D1_BITMAP_INTERPOLATION_MODE.D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, (nint)(&src));
     }
 
-    private unsafe void DrawMediaLetterboxed(float opacity)
+    private unsafe void DrawMediaFilled(float opacity)
     {
         if (!_hasMedia || _mediaBitmap is null || _mediaWidth <= 0 || _mediaHeight <= 0)
         {
@@ -202,14 +202,17 @@ public sealed class PtzCompositor : IDisposable
             return;
         }
 
-        double scale = Math.Min((double)OutWidth / _mediaWidth, (double)OutHeight / _mediaHeight);
-        float dw = (float)(_mediaWidth * scale);
-        float dh = (float)(_mediaHeight * scale);
-        float dx = (OutWidth - dw) / 2;
-        float dy = (OutHeight - dh) / 2;
-        var dest = new D2D_RECT_F(dx, dy, dx + dw, dy + dh);
+        // Aspect-fill: cover the whole 16:9 frame, cropping the source overflow
+        // (window chrome, ultrawide side bars) centered. JW Library media is
+        // 16:9, so the actual content fills edge to edge.
+        double cropW = Math.Min(_mediaWidth, _mediaHeight * 16.0 / 9.0);
+        double cropH = cropW * 9.0 / 16.0;
+        float sx = (float)((_mediaWidth - cropW) / 2);
+        float sy = (float)((_mediaHeight - cropH) / 2);
+        var src = new D2D_RECT_F(sx, sy, sx + (float)cropW, sy + (float)cropH);
+        var dest = new D2D_RECT_F(0f, 0f, OutWidth, OutHeight);
         _rt!.Object.DrawBitmap(_mediaBitmap.Object, (nint)(&dest), opacity,
-            D2D1_BITMAP_INTERPOLATION_MODE.D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, 0);
+            D2D1_BITMAP_INTERPOLATION_MODE.D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, (nint)(&src));
     }
 
     private void DrawCameraInset(PtzState state, float opacity)
