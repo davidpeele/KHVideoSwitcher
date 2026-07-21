@@ -44,6 +44,15 @@ public sealed class MediaStateDetector
     private const int MotionRingSize = 45;
     private const int MotionTicksNeeded = 25;
 
+    // Lyric/song videos (sjjm sing-along) show a static background where a
+    // lyric line fades in every few seconds: bursts of motion separated by
+    // long stills. A burst that follows >= EventGapTicks of stillness counts
+    // as one "change event"; several distinct events within the window can
+    // only be a playing video — a real still image changes exactly once.
+    private const int EventGapTicks = 25;     // ~0.8s of stillness separates events
+    private const int EventsNeeded = 3;
+    private const int EventWindowMs = 12000;
+
     // Videos often hold a static frame for a while (scripture references,
     // title cards). Once Video is active it is LATCHED: stills don't end it —
     // only the stock screen or feed loss does. Without a stock fingerprint a
@@ -61,6 +70,8 @@ public sealed class MediaStateDetector
     private readonly bool[] _motionRing = new bool[MotionRingSize];
     private int _motionRingIndex;
     private int _motionRingCount;
+    private int _stillRunTicks;
+    private readonly Queue<long> _changeEvents = new();
     private MediaState _active = MediaState.NoFeed;
     private MediaState _candidate = MediaState.NoFeed;
     private long _candidateSinceMs;
@@ -100,7 +111,33 @@ public sealed class MediaStateDetector
             if (moving)
                 _motionRingCount++;
             _motionRingIndex = (_motionRingIndex + 1) % MotionRingSize;
-            if (_motionRingCount >= MotionTicksNeeded)
+
+            bool stockMatch = _stock is not null && MeanAbsDiff(current, _stock) <= StockTolerance;
+
+            // Distinct change events (lyric lines appearing, slide changes).
+            bool newEvent = false;
+            if (moving)
+            {
+                if (_stillRunTicks >= EventGapTicks && !stockMatch)
+                {
+                    _changeEvents.Enqueue(now);
+                    while (_changeEvents.Count > 16)
+                        _changeEvents.Dequeue();
+                    newEvent = true;
+                }
+                _stillRunTicks = 0;
+            }
+            else
+            {
+                _stillRunTicks++;
+            }
+            while (_changeEvents.Count > 0 && now - _changeEvents.Peek() > EventWindowMs)
+                _changeEvents.Dequeue();
+
+            // Video presence is asserted by sustained motion, or by a NEW
+            // change event when enough distinct events are in the window
+            // (lyric videos). A quiet window must not keep refreshing it.
+            if (_motionRingCount >= MotionTicksNeeded || (newEvent && _changeEvents.Count >= EventsNeeded))
                 _lastSustainedMs = now;
 
             MediaState candidate;
@@ -108,9 +145,12 @@ public sealed class MediaStateDetector
             {
                 candidate = MediaState.Video;
             }
-            else if (_stock is not null && MeanAbsDiff(current, _stock) <= StockTolerance)
+            else if (stockMatch)
             {
                 candidate = MediaState.NoMedia;
+                // The stock screen ends the current media item: change events
+                // must not accumulate across separate items.
+                _changeEvents.Clear();
             }
             else
             {
@@ -137,6 +177,8 @@ public sealed class MediaStateDetector
             _havePrev = false;
             Array.Clear(_motionRing);
             _motionRingCount = 0;
+            _stillRunTicks = 0;
+            _changeEvents.Clear();
             return Debounce(MediaState.NoFeed, Environment.TickCount64);
         }
     }

@@ -239,6 +239,24 @@ static async Task RunDetectTestAsync()
     s = await RunPhaseAsync("7. different static 3s", 3000, noise: false);
     Check("still (non-stock) detection", s, KHVideoSwitcher.Video.MediaState.Still);
 
+    // 8. Back to stock, then a LYRIC VIDEO: a new "line" (small change) every
+    //    ~2s over a static background => must classify as Video.
+    FillSolid(30, 60, 90);
+    await RunPhaseAsync("8. stock again 3s", 3000, noise: false);
+    for (var line = 0; line < 5; line++)
+    {
+        FillSolid((byte)(50 + line * 25), (byte)(70 + line * 10), 110); // lyric line appears
+        detector.Analyze(frame, w, h);
+        await Task.Delay(33);
+        s = await RunPhaseAsync($"   lyric line {line + 1}, then 2s hold", 2000, noise: false);
+    }
+    Check("lyric video detection", s, KHVideoSwitcher.Video.MediaState.Video);
+
+    // 9. Lyric video ends at the stock screen => NoMedia again.
+    FillSolid(30, 60, 90);
+    s = await RunPhaseAsync("9. stock screen 4s", 4000, noise: false);
+    Check("stock releases lyric latch", s, KHVideoSwitcher.Video.MediaState.NoMedia);
+
     Console.WriteLine(failures == 0 ? "\nAll detector checks PASSED." : $"\n{failures} detector check(s) FAILED.");
 }
 
