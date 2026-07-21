@@ -23,39 +23,46 @@
             <Setter Property="ToolTip" Value="Left-click: recall (fade) • Right-click: save current PREVIEW framing"/>
         </Style>
     </Window.Resources>
-    <Grid Margin="10">
+    <Grid x:Name="RootGrid" Margin="10">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Toolbar -->
-        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-            <TextBlock Text="Camera:" Foreground="#FFCCCCCC" VerticalAlignment="Center"/>
-            <ComboBox x:Name="CameraCombo" Width="300" Margin="8,0,0,0" VerticalAlignment="Center"/>
-            <Button x:Name="StartStopButton" Content="Start" Width="90" Margin="12,0,0,0"
-                    Padding="0,4" Click="StartStopButton_Click" IsEnabled="False"/>
-            <Button x:Name="VCamButton" Content="Virtual Camera: Off" Width="150" Margin="12,0,0,0"
-                    Padding="0,4" Click="VCamButton_Click"/>
-            <TextBlock Text="Media:" Foreground="#FFCCCCCC" VerticalAlignment="Center" Margin="24,0,0,0"/>
-            <ComboBox x:Name="MediaCombo" Width="300" Margin="8,0,0,0" VerticalAlignment="Center"
-                      DropDownOpened="MediaCombo_DropDownOpened"/>
-            <Button x:Name="MediaCaptureButton" Content="Capture" Width="90" Margin="12,0,0,0"
-                    Padding="0,4" Click="MediaCaptureButton_Click"/>
-            <Button x:Name="StockButton" Content="Set Stock" Width="80" Margin="12,0,0,0"
-                    Padding="0,4" Click="StockButton_Click"
-                    ToolTip="Click while JW Library shows the yeartext / no-media screen. That screen is then recognized as NO MEDIA by automatic switching."/>
-            <Button x:Name="SettingsButton" Content="Settings" Width="80" Margin="12,0,0,0"
-                    Padding="0,4" Click="SettingsButton_Click"/>
-            <Button x:Name="CompactButton" Content="Compact" Width="80" Margin="12,0,0,0"
-                    Padding="0,4" Click="CompactButton_Click"
-                    ToolTip="Hide the PREVIEW pane for a smaller meeting layout (F11)"/>
-        </StackPanel>
+        <!-- Toolbar: groups wrap as units when the window is narrow -->
+        <WrapPanel x:Name="ToolbarPanel" Margin="0,0,0,4">
+            <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
+                <TextBlock Text="Camera:" Foreground="#FFCCCCCC" VerticalAlignment="Center"/>
+                <ComboBox x:Name="CameraCombo" Width="260" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                <Button x:Name="StartStopButton" Content="Start" Width="80" Margin="10,0,0,0"
+                        Padding="0,4" Click="StartStopButton_Click" IsEnabled="False"/>
+                <Button x:Name="VCamButton" Content="Virtual Camera: Off" Width="150" Margin="10,0,0,0"
+                        Padding="0,4" Click="VCamButton_Click"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,20,6">
+                <TextBlock Text="Media:" Foreground="#FFCCCCCC" VerticalAlignment="Center"/>
+                <ComboBox x:Name="MediaCombo" Width="260" Margin="8,0,0,0" VerticalAlignment="Center"
+                          DropDownOpened="MediaCombo_DropDownOpened"/>
+                <Button x:Name="MediaCaptureButton" Content="Capture" Width="80" Margin="10,0,0,0"
+                        Padding="0,4" Click="MediaCaptureButton_Click"/>
+                <Button x:Name="StockButton" Content="Set Stock" Width="80" Margin="10,0,0,0"
+                        Padding="0,4" Click="StockButton_Click"
+                        ToolTip="Click while JW Library shows the yeartext / no-media screen. That screen is then recognized as NO MEDIA by automatic switching."/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                <Button x:Name="SettingsButton" Content="Settings" Width="80"
+                        Padding="0,4" Click="SettingsButton_Click"/>
+                <Button x:Name="CompactButton" Content="Compact" Width="80" Margin="10,0,0,0"
+                        Padding="0,4" Click="CompactButton_Click"
+                        ToolTip="Hide the PREVIEW pane for a smaller meeting layout (F11)"/>
+            </StackPanel>
+        </WrapPanel>
 
         <!-- Preview / Program panes -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1" x:Name="PanesGrid" SizeChanged="PanesGrid_SizeChanged">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="PreviewCol" Width="*"/>
                 <ColumnDefinition x:Name="SpacerCol" Width="12"/>
@@ -65,7 +72,7 @@
             <Grid Grid.Column="0" x:Name="PreviewPane">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <DockPanel LastChildFill="False">
                     <TextBlock Style="{StaticResource PaneHeader}" DockPanel.Dock="Left">
@@ -76,7 +83,8 @@
                               Checked="DragModeCheck_Changed" Unchecked="DragModeCheck_Changed"
                               ToolTip="Checked: drag right and the picture comes right (grab-the-picture feel). Unchecked: drag moves the crop box / camera instead."/>
                 </DockPanel>
-                <Border Grid.Row="1" Background="Black" CornerRadius="4" BorderBrush="#FF2A6E2A" BorderThickness="2">
+                <Border Grid.Row="1" x:Name="PreviewBorder" Background="Black" CornerRadius="4"
+                        BorderBrush="#FF2A6E2A" BorderThickness="2" VerticalAlignment="Top">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -114,27 +122,30 @@
             <Grid Grid.Column="2">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <TextBlock Style="{StaticResource PaneHeader}">
                     PROGRAM <Run Foreground="#FFD9534F">— live output</Run>
                 </TextBlock>
-                <Border Grid.Row="1" Background="Black" CornerRadius="4" BorderBrush="#FF8E2A2A" BorderThickness="2">
+                <Border Grid.Row="1" x:Name="ProgramBorder" Background="Black" CornerRadius="4"
+                        BorderBrush="#FF8E2A2A" BorderThickness="2" VerticalAlignment="Top">
                     <Image x:Name="ProgramImage" Stretch="Uniform"/>
                 </Border>
             </Grid>
         </Grid>
 
-        <!-- Transport + presets -->
-        <DockPanel Grid.Row="2" Margin="0,10,0,4" LastChildFill="False">
-            <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+        <!-- Transport + presets: groups wrap as units when the window is narrow -->
+        <WrapPanel x:Name="TransportPanel" Grid.Row="2" Margin="0,10,0,0">
+            <StackPanel Orientation="Horizontal" Margin="0,0,20,8">
                 <Button x:Name="TakeButton" Content="TAKE  ⏎" Width="110" Height="40" FontWeight="Bold"
                         Background="#FF7A1F1F" Foreground="White" BorderBrush="#FFAA3333" Click="TakeButton_Click"
                         ToolTip="Crossfade PROGRAM to the PREVIEW scene (Enter)"/>
                 <Button x:Name="CutButton" Content="CUT" Width="70" Height="40" Margin="8,0,0,0"
                         Background="#FF333333" Foreground="White" BorderBrush="#FF555555" Click="CutButton_Click"
                         ToolTip="Instantly switch PROGRAM to the PREVIEW scene (Space)"/>
-                <TextBlock Text="Scene:" Foreground="#FF888888" VerticalAlignment="Center" Margin="20,0,6,0"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,20,8">
+                <TextBlock Text="Scene:" Foreground="#FF888888" VerticalAlignment="Center" Margin="0,0,6,0"/>
                 <Button x:Name="SceneCamButton" Content="CAM" Width="70" Height="40"
                         Background="#FF2A5E2A" Foreground="White" BorderBrush="#FF555555" Click="SceneButton_Click" Tag="Camera"
                         ToolTip="PREVIEW: PTZ camera (F1)"/>
@@ -144,17 +155,19 @@
                 <Button x:Name="SceneOtsButton" Content="OTS" Width="70" Height="40" Margin="6,0,0,0"
                         Background="#FF333333" Foreground="White" BorderBrush="#FF555555" Click="SceneButton_Click" Tag="OverShoulder"
                         ToolTip="PREVIEW: media with camera inset, over-the-shoulder (F3)"/>
-                <Button x:Name="WideButton" Content="Wide" Width="70" Height="40" Margin="16,0,0,0"
+                <Button x:Name="WideButton" Content="Wide" Width="70" Height="40" Margin="12,0,0,0"
                         Background="#FF333333" Foreground="White" BorderBrush="#FF555555" Click="WideButton_Click"
                         ToolTip="Set PREVIEW to the full wide shot (0)"/>
-                <Button x:Name="AutoTakeButton" Content="Auto-Take: ON" Width="120" Height="40" Margin="16,0,0,0"
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,20,8">
+                <Button x:Name="AutoTakeButton" Content="Auto-Take: ON" Width="120" Height="40"
                         Background="#FF7A5A1F" Foreground="White" BorderBrush="#FF555555" Click="AutoTakeButton_Click"
                         ToolTip="ON: scene buttons and F1-F3 fade Program immediately. OFF: they only set PREVIEW; use TAKE/CUT. (A)"/>
-                <Button x:Name="AutoScenesButton" Content="AUTO: OFF" Width="110" Height="40" Margin="16,0,0,0"
+                <Button x:Name="AutoScenesButton" Content="AUTO: OFF" Width="110" Height="40" Margin="8,0,0,0"
                         Background="#FF333333" Foreground="White" BorderBrush="#FF555555" Click="AutoScenesButton_Click"
                         ToolTip="Automatic switching from JW Library state: video → MEDIA, still image → OTS, no media → CAM. Manual controls always stay available. (F4)"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                 <TextBlock Text="Presets:" Foreground="#FF888888" VerticalAlignment="Center" Margin="0,0,6,0"/>
                 <Button x:Name="Preset1" Style="{StaticResource PresetButton}" Content="1" Tag="0"
                         Click="Preset_Click" MouseRightButtonUp="Preset_RightClick"/>
@@ -169,9 +182,9 @@
                 <Button x:Name="Preset6" Style="{StaticResource PresetButton}" Content="6" Tag="5"
                         Click="Preset_Click" MouseRightButtonUp="Preset_RightClick"/>
             </StackPanel>
-        </DockPanel>
+        </WrapPanel>
 
-        <TextBlock x:Name="StatusText" Grid.Row="3" Margin="0,6,0,0"
+        <TextBlock x:Name="StatusText" Grid.Row="4" Margin="0,6,0,0" TextWrapping="Wrap"
                    Foreground="#FF9CDCFE" FontFamily="Consolas" Text="Ready."/>
     </Grid>
 </Window>

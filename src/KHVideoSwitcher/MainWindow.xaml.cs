@@ -59,7 +59,7 @@ public partial class MainWindow : Window
         _statusTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _statusTimer.Tick += (_, _) => UpdateStatus();
         Loaded += MainWindow_Loaded;
-        SizeChanged += (_, _) => UpdateCropOverlay();
+        SizeChanged += (_, _) => LayoutPanes();
         RefreshPresetButtons();
     }
 
@@ -89,6 +89,7 @@ public partial class MainWindow : Window
             SyncZoomSlider();
             _detector.ImportStock(_settings.StockFingerprint);
             ApplySettings();
+            LayoutPanes();
         }
         catch (Exception ex)
         {
@@ -477,6 +478,30 @@ public partial class MainWindow : Window
         PreviewCol.Width = _compact ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
         SpacerCol.Width = new GridLength(_compact ? 0 : 12);
         CompactButton.Content = _compact ? "Full View" : "Compact";
+        LayoutPanes();
+    }
+
+    private void PanesGrid_SizeChanged(object sender, System.Windows.SizeChangedEventArgs e) => LayoutPanes();
+
+    /// <summary>
+    /// Sizes the video panes to their true 16:9 height (bounded by the space
+    /// the window actually has), so tall windows don't waste screen on
+    /// letterboxing and the transport row stays right under the video.
+    /// </summary>
+    private void LayoutPanes()
+    {
+        double gridW = PanesGrid.ActualWidth;
+        if (gridW <= 60 || !IsLoaded)
+            return;
+
+        double paneW = _compact ? gridW : Math.Max(120, (gridW - 12) / 2);
+        double videoW = paneW - 48; // zoom slider column + border
+        double budget = RootGrid.ActualHeight - ToolbarPanel.ActualHeight - TransportPanel.ActualHeight
+                        - StatusText.ActualHeight - 60;
+        double h = Math.Min(videoW * 9.0 / 16 + 4, Math.Max(150, budget));
+        PreviewBorder.Height = h;
+        ProgramBorder.Height = h;
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, UpdateCropOverlay);
     }
 
     private void StockButton_Click(object sender, RoutedEventArgs e)
