@@ -253,6 +253,22 @@ static async Task RunDetectTestAsync()
     s = await RunPhaseAsync("7. different static 3s", 3000, null);
     Check("still (non-stock) detection", s, KHVideoSwitcher.Video.MediaState.Still);
 
+    // 7b. A still image arriving with a ~0.5s FADE-IN (JW Library style) must
+    //     still classify as Still, not video.
+    var from = (b: (byte)120, g: (byte)90, r: (byte)200);
+    var to = (b: (byte)40, g: (byte)160, r: (byte)80);
+    for (var step = 0; step <= 14; step++)
+    {
+        FillSolid(
+            (byte)(from.b + (to.b - from.b) * step / 14),
+            (byte)(from.g + (to.g - from.g) * step / 14),
+            (byte)(from.r + (to.r - from.r) * step / 14));
+        detector.Analyze(frame, w, h);
+        await Task.Delay(33);
+    }
+    s = await RunPhaseAsync("7b. image fade-in then 3s hold", 3000, null);
+    Check("faded-in image stays Still", s, KHVideoSwitcher.Video.MediaState.Still);
+
     // 8. Slow sing-along lyric pattern (a line change every ~2s) stays Still —
     //    by design: the operator takes MEDIA manually for songs, and because
     //    the state never flaps, that manual choice sticks.

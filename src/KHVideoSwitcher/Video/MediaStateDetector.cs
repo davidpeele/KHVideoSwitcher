@@ -33,11 +33,11 @@ public sealed class MediaStateDetector
     // frame-average) keeps calm scenes detectable: a talking head changes a
     // small cluster of cells every frame, which a frame-wide mean dilutes.
     // Screen captures are pixel-exact, so a static screen changes 0 cells.
-    private const int CellDiffThreshold = 6;  // luma delta for a cell to count as changed
+    private const int CellDiffThreshold = 4;  // luma delta for a cell to count as changed (catches dark fade-up intros)
     private const int MovedCellsNeeded = 4;   // of 2304 cells
     private const int VideoStickyMs = 1500;   // sustained motion this recent still counts as video
     private const double StockTolerance = 3.0;
-    private const int EnterVideoMs = 250;     // react to video fast
+    private const int EnterVideoMs = 150;     // react to video fast
     private const int EnterOtherMs = 1200;    // leave video / settle slowly
 
     // Video means SUSTAINED motion: at least MotionTicksNeeded moving frames
@@ -46,8 +46,10 @@ public sealed class MediaStateDetector
     // below this; real playback is continuous and clears it easily.
     // Sing-along lyric videos change too rarely to qualify — the operator
     // taps MEDIA at song start and the video latch holds from there.
+    // 18 ticks ≈ 0.6s of motion. A still image's fade-in (~0.5s ≈ 15 ticks)
+    // stays under the bar; real playback clears it within about a second.
     private const int MotionRingSize = 45;
-    private const int MotionTicksNeeded = 25;
+    private const int MotionTicksNeeded = 18;
 
     // Videos often hold a static frame for a while (scripture references,
     // title cards). Once Video is active it is LATCHED: stills don't end it —
