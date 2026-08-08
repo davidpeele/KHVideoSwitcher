@@ -27,18 +27,37 @@ something meeting operators can run with a few clicks.
 
 ## Installing
 
-1. Download the latest `KHVideoSwitcher-vX.Y.Z.zip` from
-   [Releases](../../releases) and extract it anywhere.
-2. Right-click `install.ps1` → **Run with PowerShell**, and accept the
-   administrator prompt. (If script execution is blocked on your machine, open
-   a PowerShell window in the folder and run
-   `powershell -ExecutionPolicy Bypass -File .\install.ps1`.)
-3. The installer puts the app in Program Files, registers the virtual camera,
-   creates Start Menu and Desktop shortcuts, and installs the .NET runtime if
-   needed.
+1. Download the latest `KHVideoSwitcher-Setup-X.Y.Z.exe` from
+   [Releases](../../releases).
+2. Double-click it, click **Yes** on the one administrator prompt (this is
+   Windows asking permission to register the virtual camera and install to
+   Program Files — the same prompt every desktop installer shows), and click
+   through the wizard.
+3. That's it — Start Menu and Desktop shortcuts are created, the virtual
+   camera is registered, and the .NET 10 Desktop Runtime is installed
+   automatically if it isn't already present.
 
-To uninstall: run `install.ps1 -Uninstall` (or keep the extracted folder and
-run it from there later).
+To uninstall, use **Settings → Apps** (or **Add/Remove Programs**) like any
+other Windows application, or run the **Uninstall KH Video Switcher** shortcut
+in the Start Menu.
+
+<details>
+<summary>Alternative: script-based install (no installer exe)</summary>
+
+If you'd rather install from a plain folder — e.g. for a scripted/managed
+deployment — download `KHVideoSwitcher-vX.Y.Z.zip` instead, extract it, and
+either:
+
+Right-click `install.ps1` → **Run with PowerShell** and accept the
+administrator prompt. (If script execution is blocked, open PowerShell in the
+folder and run `powershell -ExecutionPolicy Bypass -File .\install.ps1`.)
+Uninstall with `install.ps1 -Uninstall`.
+
+The `.exe` installer also supports unattended deployment via Inno Setup's
+standard `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` switches, useful for
+pushing installs to multiple machines with a script.
+
+</details>
 
 ## First-time setup (once per machine)
 
@@ -77,16 +96,21 @@ back.
 
 ## Building from source
 
-Requires the .NET 10 SDK on Windows 11.
+Requires the .NET 10 SDK on Windows 11, plus [Inno Setup 6](https://jrsoftware.org/isdl.php)
+if you want to build the installer exe.
 
 ```powershell
 dotnet build KHVideoSwitcher.sln -c Release
-scripts\publish.ps1          # builds the dist\ package
-dist\install.ps1             # installs it (elevated)
+scripts\build-installer.ps1 -Version 1.2.3   # -> dist-installer\KHVideoSwitcher-Setup-1.2.3.exe
+# or, for the plain-folder install method:
+scripts\publish.ps1                          # -> dist\ (app + vcam + install.ps1)
 ```
 
+`scripts\release.ps1 -Version 1.2.3` builds, runs the self-tests, tags, and
+publishes a GitHub release in one step (see the script header for options).
+
 The virtual camera component must be registered from a location readable by
-Windows services — the install script handles this (`C:\ProgramData`).
+Windows services — both install paths handle this (`C:\ProgramData`).
 `tools\DeviceCheck` contains self-test modes used during development
 (`vcamtest`, `ptztest`, `wgctest`, `detecttest`).
 
