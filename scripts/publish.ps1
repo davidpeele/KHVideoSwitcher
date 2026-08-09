@@ -25,7 +25,7 @@ if ($LASTEXITCODE -ne 0) { throw "app publish failed" }
 Write-Host "Building virtual camera..."
 dotnet build "$repo\src\KHVideoSwitcher.VCam\KHVideoSwitcher.VCam.csproj" -c Release -v minimal
 if ($LASTEXITCODE -ne 0) { throw "vcam build failed" }
-Copy-Item "$repo\src\KHVideoSwitcher.VCam\bin\x64\Release\net10.0-windows10.0.22621.0\*" "$OutDir\vcam" -Recurse -Force
+Copy-Item "$repo\src\KHVideoSwitcher.VCam\bin\Release\net10.0-windows10.0.22621.0\*" "$OutDir\vcam" -Recurse -Force
 
 Copy-Item "$PSScriptRoot\install.ps1" $OutDir -Force
 
