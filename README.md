@@ -56,7 +56,14 @@ own user folder. Use it when:
   machine, because the virtual camera must be registered for the whole computer.
 
 The installer tells you which of those two situations you're in when it
-finishes. You can re-run it later and pick all-users mode to add the camera.
+finishes.
+
+**Switching from "just for me" to "all users" later** (i.e. adding the virtual
+camera): uninstall the per-user copy first — Settings → Apps → *KH Video
+Switcher (Current user)* — then run the installer again and choose **Install
+for all users**. Removing it first avoids ending up with two copies installed
+side by side. Your presets and settings live in `%APPDATA%` and are untouched
+by either install or uninstall.
 
 > **Expect Windows to complain, and here's the honest reason.** These downloads
 > are not Authenticode-signed — a code-signing certificate is a recurring paid

@@ -45,6 +45,11 @@ DisableProgramGroupPage=yes
 ; /CURRENTUSER for unattended deployment.
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=commandline dialog
+; Always ask which mode to use. Inno defaults to silently reusing the mode of a
+; previous install, which traps anyone who installed "just for me" first and
+; then wants to add the machine-wide virtual camera: re-running setup would go
+; straight back to per-user with no way to change it.
+UsePreviousPrivileges=no
 OutputDir=..\dist-installer
 OutputBaseFilename=KHVideoSwitcher-Setup-{#AppVersion}
 Compression=lzma2
