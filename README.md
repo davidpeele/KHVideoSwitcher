@@ -29,13 +29,34 @@ something meeting operators can run with a few clicks.
 
 1. Download the latest `KHVideoSwitcher-Setup-X.Y.Z.exe` from
    [Releases](../../releases).
-2. Double-click it, click **Yes** on the one administrator prompt (this is
-   Windows asking permission to register the virtual camera and install to
-   Program Files — the same prompt every desktop installer shows), and click
-   through the wizard.
-3. That's it — Start Menu and Desktop shortcuts are created, the virtual
-   camera is registered, and the .NET 10 Desktop Runtime is installed
-   automatically if it isn't already present.
+2. Double-click it and choose an install mode on the first page:
+   - **Install for all users (recommended)** — click **Yes** on the one
+     administrator prompt. Installs the app *and* the virtual camera.
+   - **Install for me only** — no administrator rights needed. See below.
+3. Click through the wizard. Start Menu and Desktop shortcuts are created, the
+   .NET 10 Desktop Runtime is installed if missing, and (in all-users mode) the
+   virtual camera is registered.
+
+### Which mode do I want?
+
+**Install for all users** is what you want on the Kingdom Hall computer. It
+needs an administrator once, and because the virtual camera registers
+machine-wide, *every* Windows account on that PC can then run the switcher —
+including standard, non-admin accounts, each with their own presets. Running the
+app day to day never requires administrator rights; only this install does.
+
+**Install for me only** needs no administrator at all and puts the app in your
+own user folder. Use it when:
+
+- an administrator already installed the virtual camera on this computer — then
+  everything works normally, including output to Zoom; or
+- you want to learn the app, rehearse framing, or set up presets on a machine
+  where you can't elevate. Camera, pan/zoom, presets, scenes, media capture and
+  automatic switching all work — you just can't send video to Zoom from that
+  machine, because the virtual camera must be registered for the whole computer.
+
+The installer tells you which of those two situations you're in when it
+finishes. You can re-run it later and pick all-users mode to add the camera.
 
 > **Expect a SmartScreen warning.** The downloads are not Authenticode-signed
 > (a code-signing certificate is a recurring paid expense this volunteer
@@ -62,6 +83,10 @@ deployments where a plain folder is easier to work with. Download
 `KHVideoSwitcher-vX.Y.Z.zip` instead, extract it, then right-click
 `install.ps1` → **Run with PowerShell** and accept the administrator prompt.
 Uninstall with `install.ps1 -Uninstall`.
+
+`install.ps1 -PerUser` is the equivalent of the installer's "just for me" mode:
+it installs the app to `%LOCALAPPDATA%\Programs` with no elevation and leaves
+the machine-wide virtual camera untouched (`-Uninstall -PerUser` to remove it).
 
 Note that if PowerShell's execution policy blocks the script, running it with
 `-ExecutionPolicy Bypass` removes a safety check while executing code as

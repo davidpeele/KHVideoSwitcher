@@ -24,9 +24,18 @@ AppUpdatesURL={#AppURL}/releases
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
-; The virtual camera COM component must be registered in HKLM and be
-; readable by the Windows Frame Server services, so admin is required.
-PrivilegesRequired=admin
+; Two install modes (the user picks on the first wizard page):
+;   * For all users (admin) - installs the app AND registers the virtual camera.
+;     The camera's COM component must be registered in HKLM and be readable by
+;     the Windows Frame Server services, which is why that mode needs admin.
+;   * Just for me (no admin) - installs the app only, into %LOCALAPPDATA%. The
+;     virtual camera works if some admin already registered it on this machine
+;     (it is machine-wide, so one install serves every user account); otherwise
+;     everything except virtual camera output works.
+; "dialog" shows the mode chooser; "commandline" allows /ALLUSERS and
+; /CURRENTUSER for unattended deployment.
+PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=commandline dialog
 OutputDir=..\dist-installer
 OutputBaseFilename=KHVideoSwitcher-Setup-{#AppVersion}
 Compression=lzma2
@@ -50,7 +59,10 @@ Source: "..\dist\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs c
 ; The virtual camera component, installed to ProgramData so the Windows Frame
 ; Server services (running as SYSTEM/LOCAL SERVICE) can load it - HKLM-only
 ; registration requires this, it cannot live under the per-user app folder.
-Source: "..\dist\vcam\*"; DestDir: "{commonappdata}\KHVideoSwitcher\vcam"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Admin install mode only: a per-user install can neither write here nor
+; register machine-wide.
+Source: "..\dist\vcam\*"; DestDir: "{commonappdata}\KHVideoSwitcher\vcam"; \
+    Flags: ignoreversion recursesubdirs createallsubdirs; Check: IsAdminInstallMode
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
@@ -59,15 +71,18 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 
 [Run]
 Filename: "regsvr32.exe"; Parameters: "/s ""{commonappdata}\KHVideoSwitcher\vcam\{#VCamComHost}"""; \
-    StatusMsg: "Registering the virtual camera..."; Flags: runhidden
+    StatusMsg: "Registering the virtual camera..."; Flags: runhidden; Check: IsAdminInstallMode
 Filename: "{app}\{#AppExeName}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
+; Only an admin-mode install registered the camera, so only that mode unregisters
+; it - a per-user uninstall must not rip the shared camera out from under other
+; user accounts on the machine.
 Filename: "regsvr32.exe"; Parameters: "/s /u ""{commonappdata}\KHVideoSwitcher\vcam\{#VCamComHost}"""; \
-    RunOnceId: "UnregVCam"; Flags: runhidden
+    RunOnceId: "UnregVCam"; Flags: runhidden; Check: IsAdminInstallMode
 
 [UninstallDelete]
-Type: filesandordirs; Name: "{commonappdata}\KHVideoSwitcher"
+Type: filesandordirs; Name: "{commonappdata}\KHVideoSwitcher"; Check: IsAdminInstallMode
 
 [Code]
 // .NET 10 Desktop Runtime is required to run the app AND to load the virtual
@@ -93,16 +108,6 @@ begin
           Break;
         end;
   end;
-end;
-
-// Close a running instance before copying files (e.g. re-running setup to
-// upgrade) so the exe isn't locked.
-function PrepareToInstall(var NeedsRestart: Boolean): String;
-var
-  ResultCode: Integer;
-begin
-  Exec(ExpandConstant('{cmd}'), '/C taskkill /IM {#AppExeName} /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  Result := '';
 end;
 
 // The virtual camera DLL is registered machine-wide and loaded by Windows into
@@ -134,10 +139,38 @@ begin
        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
+// True if this machine already has the virtual camera registered (by an
+// earlier admin install). A per-user install can then still use it, because
+// registration is machine-wide and serves every user account.
+function IsVCamRegistered(): Boolean;
+begin
+  Result := RegKeyExists(HKEY_LOCAL_MACHINE,
+    'SOFTWARE\Classes\CLSID\{8ae54092-501b-4c01-afe0-b55cef94eb2d}\InprocServer32');
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if CurStep = ssInstall then
+  if (CurStep = ssInstall) and IsAdminInstallMode() then
     SecureVCamDirectory();
+
+  // After a per-user install, be explicit about what the user just got, so
+  // "the virtual camera is missing" is never a mystery.
+  if (CurStep = ssPostInstall) and (not IsAdminInstallMode()) and (not WizardSilent()) then
+  begin
+    if IsVCamRegistered() then
+      MsgBox('Installed for your account only.' + #13#10#13#10 +
+             'The KH Video Switcher virtual camera is already installed on this computer, ' +
+             'so everything works normally, including output to Zoom.',
+             mbInformation, MB_OK)
+    else
+      MsgBox('Installed for your account only.' + #13#10#13#10 +
+             'The virtual camera was NOT installed, because that part requires administrator ' +
+             'rights and registers itself for the whole computer.' + #13#10#13#10 +
+             'Everything else works: camera, pan/zoom, presets, scenes, media capture and ' +
+             'automatic switching. To send video to Zoom, run this installer again and choose ' +
+             '"Install for all users" (an administrator will need to approve it once).',
+             mbInformation, MB_OK);
+  end;
 end;
 
 // Verifies a downloaded file carries a valid Authenticode signature issued to
@@ -202,28 +235,48 @@ begin
   Result := IsDesktopRuntimeInstalled();
 end;
 
-function InitializeSetup(): Boolean;
+// Runs after the wizard (so the chosen install mode is known) and before files
+// are copied. Closes any running instance so the exe isn't locked, then makes
+// sure the .NET runtime is present - returning a non-empty string aborts the
+// install with that message, which is the honest outcome since the app cannot
+// start without it.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  ResultCode: Integer;
 begin
-  Result := True;
+  Result := '';
+  Exec(ExpandConstant('{cmd}'), '/C taskkill /IM {#AppExeName} /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
   if IsDesktopRuntimeInstalled() then
     Exit;
 
-  // Silent/unattended install (e.g. scripted deployment): never block on a
-  // dialog nobody can answer. Best-effort install the runtime and continue
-  // either way - the app will simply fail to launch if it's still missing,
-  // same as any prerequisite-less silent install.
   if WizardSilent() then
   begin
+    // Unattended: best effort, never block on a dialog nobody can answer.
     InstallDesktopRuntimeQuietly();
-    Exit;
+  end
+  else if IsAdminInstallMode() then
+  begin
+    // Already elevated - no further prompt beyond this confirmation.
+    if MsgBox('KH Video Switcher requires the .NET 10 Desktop Runtime, which was not found.' + #13#10#13#10 +
+              'Download and install it now?', mbConfirmation, MB_OKCANCEL) = IDOK then
+      InstallDesktopRuntimeQuietly();
+  end
+  else
+  begin
+    // Per-user install: the runtime is a machine-wide package, so Microsoft's
+    // installer raises its own administrator prompt.
+    if MsgBox('KH Video Switcher requires the .NET 10 Desktop Runtime, which was not found.' + #13#10#13#10 +
+              'It can be downloaded now, but installing it needs administrator approval ' +
+              '(Windows will ask). If nobody can approve it, ask an administrator to install ' +
+              'the .NET 10 Desktop Runtime, then run this setup again.' + #13#10#13#10 +
+              'Try now?', mbConfirmation, MB_OKCANCEL) = IDOK then
+      InstallDesktopRuntimeQuietly();
   end;
 
-  if MsgBox('KH Video Switcher requires the .NET 10 Desktop Runtime, which was not found on this computer.' + #13#10#13#10 +
-            'Click OK to download and install it now (opens the official Microsoft installer), or Cancel to install it yourself later from https://dotnet.microsoft.com/download/dotnet/10.0',
-            mbConfirmation, MB_OKCANCEL) = IDOK then
-  begin
-    if not InstallDesktopRuntimeQuietly() then
-      MsgBox('The download could not be completed automatically. Please install the .NET 10 Desktop Runtime ' +
-             'from https://dotnet.microsoft.com/download/dotnet/10.0 and run this setup again.', mbError, MB_OK);
-  end;
+  if not IsDesktopRuntimeInstalled() then
+    Result := 'The .NET 10 Desktop Runtime is required and is not installed, so KH Video ' +
+              'Switcher would not be able to start.' + #13#10#13#10 +
+              'Install it from https://dotnet.microsoft.com/download/dotnet/10.0 and run ' +
+              'this setup again.';
 end;
