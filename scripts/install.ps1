@@ -60,7 +60,22 @@ New-Item -ItemType Directory -Force $appDir | Out-Null
 Copy-Item "$dist\app\*" $appDir -Recurse -Force
 
 Write-Host "Installing virtual camera to $vcamDir..."
+$vcamRoot = Split-Path $vcamDir -Parent
 New-Item -ItemType Directory -Force $vcamDir | Out-Null
+
+# The DLL below is registered machine-wide and loaded by Windows into camera
+# processes, so this folder must not be writable by unprivileged users.
+# %ProgramData% grants CREATOR OWNER rights on new subfolders, so a standard user
+# could pre-create this path, keep write access (and, as owner, implicit WRITE_DAC
+# to undo any ACL we set), then swap the DLL later — a local privilege escalation.
+# Seize ownership and reset the ACL BEFORE copying the files in.
+& icacls.exe $vcamRoot /setowner "*S-1-5-32-544" /T /C /Q | Out-Null
+& icacls.exe $vcamRoot /inheritance:r `
+    /grant "*S-1-5-18:(OI)(CI)F" `
+    /grant "*S-1-5-32-544:(OI)(CI)F" `
+    /grant "*S-1-5-32-545:(OI)(CI)RX" `
+    /grant "*S-1-15-2-1:(OI)(CI)RX" /T /C /Q | Out-Null
+
 Copy-Item "$dist\vcam\*" $vcamDir -Recurse -Force
 $p = Start-Process regsvr32 -ArgumentList '/s',"`"$comhost`"" -Wait -PassThru
 if ($p.ExitCode -ne 0) { throw "Virtual camera registration failed (regsvr32 exit $($p.ExitCode))." }

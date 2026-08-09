@@ -37,25 +37,36 @@ something meeting operators can run with a few clicks.
    camera is registered, and the .NET 10 Desktop Runtime is installed
    automatically if it isn't already present.
 
+> **Expect a SmartScreen warning.** The downloads are not Authenticode-signed
+> (a code-signing certificate is a recurring paid expense this volunteer
+> project doesn't carry), so Windows shows *"Windows protected your PC"* on
+> first run — click **More info → Run anyway**. To confirm you have the genuine
+> file, compare its hash against `SHA256SUMS.txt` on the release page:
+>
+> ```powershell
+> Get-FileHash .\KHVideoSwitcher-Setup-1.1.0.exe -Algorithm SHA256
+> ```
+
 To uninstall, use **Settings → Apps** (or **Add/Remove Programs**) like any
 other Windows application, or run the **Uninstall KH Video Switcher** shortcut
 in the Start Menu.
 
+For unattended deployment to several machines, the installer supports Inno
+Setup's standard `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` switches.
+
 <details>
-<summary>Alternative: script-based install (no installer exe)</summary>
+<summary>Advanced alternative: script-based install (no installer exe)</summary>
 
-If you'd rather install from a plain folder — e.g. for a scripted/managed
-deployment — download `KHVideoSwitcher-vX.Y.Z.zip` instead, extract it, and
-either:
-
-Right-click `install.ps1` → **Run with PowerShell** and accept the
-administrator prompt. (If script execution is blocked, open PowerShell in the
-folder and run `powershell -ExecutionPolicy Bypass -File .\install.ps1`.)
+**Prefer the installer above.** This path exists for scripted or managed
+deployments where a plain folder is easier to work with. Download
+`KHVideoSwitcher-vX.Y.Z.zip` instead, extract it, then right-click
+`install.ps1` → **Run with PowerShell** and accept the administrator prompt.
 Uninstall with `install.ps1 -Uninstall`.
 
-The `.exe` installer also supports unattended deployment via Inno Setup's
-standard `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART` switches, useful for
-pushing installs to multiple machines with a script.
+Note that if PowerShell's execution policy blocks the script, running it with
+`-ExecutionPolicy Bypass` removes a safety check while executing code as
+administrator. Only do that with a copy whose SHA-256 you have verified against
+the release page.
 
 </details>
 

@@ -212,7 +212,7 @@ public partial class MainWindow : Window
 
         _compositor.RenderProgram(program, transition);
 
-        if (_vcamOn && _vcamChannel.TryOpen())
+        if (_vcamOn && _vcamChannel.TryOpenForWrite())
         {
             _vcamChannel.WriteFrame(PtzCompositor.OutWidth, PtzCompositor.OutHeight, PtzCompositor.OutWidth * 4,
                 dest => _compositor.CopyOutputTo(dest, PtzCompositor.OutBytes));
@@ -325,7 +325,7 @@ public partial class MainWindow : Window
             else
             {
                 await Task.Run(_vcam.Start);
-                _vcamChannel.TryOpen();
+                _vcamChannel.TryOpenForWrite();
                 _vcamOn = true;
                 VCamButton.Content = "Virtual Camera: ON";
             }

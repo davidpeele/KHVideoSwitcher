@@ -105,9 +105,67 @@ begin
   Result := '';
 end;
 
+// The virtual camera DLL is registered machine-wide and loaded by Windows into
+// camera processes, so its folder must not be writable by unprivileged users.
+// %ProgramData% grants CREATOR OWNER rights on new subfolders, so a standard
+// user could pre-create this path, keep write access (and, as owner, implicit
+// WRITE_DAC to undo any ACL we set), then swap the DLL later - a local privilege
+// escalation. Seize ownership and reset the ACL BEFORE any files are copied in.
+procedure SecureVCamDirectory();
+var
+  Dir: String;
+  ResultCode: Integer;
+begin
+  Dir := ExpandConstant('{commonappdata}\KHVideoSwitcher');
+  if not DirExists(Dir) then
+    ForceDirectories(Dir);
+
+  // Owner -> Administrators, so nobody else retains implicit WRITE_DAC.
+  Exec(ExpandConstant('{sys}\icacls.exe'), '"' + Dir + '" /setowner *S-1-5-32-544 /T /C /Q',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  // Drop inherited ACEs, then grant: SYSTEM and Administrators full control,
+  // Users and ALL APPLICATION PACKAGES read+execute only.
+  Exec(ExpandConstant('{sys}\icacls.exe'),
+       '"' + Dir + '" /inheritance:r' +
+       ' /grant *S-1-5-18:(OI)(CI)F' +
+       ' /grant *S-1-5-32-544:(OI)(CI)F' +
+       ' /grant *S-1-5-32-545:(OI)(CI)RX' +
+       ' /grant *S-1-15-2-1:(OI)(CI)RX /T /C /Q',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssInstall then
+    SecureVCamDirectory();
+end;
+
+// Verifies a downloaded file carries a valid Authenticode signature issued to
+// Microsoft. This runs elevated and the result is executed, so an unsigned or
+// tampered download must never be launched.
+function IsSignedByMicrosoft(const Path: String): Boolean;
+var
+  ResultCode: Integer;
+  MarkerFile: String;
+  Lines: TArrayOfString;
+begin
+  Result := False;
+  MarkerFile := ExpandConstant('{tmp}\sigcheck.txt');
+  DeleteFile(MarkerFile);
+  // Status must be Valid AND the signing certificate subject must be Microsoft.
+  Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+       '-NoProfile -ExecutionPolicy Bypass -Command "' +
+       '$s = Get-AuthenticodeSignature -LiteralPath ''' + Path + '''; ' +
+       'if ($s.Status -eq ''Valid'' -and $s.SignerCertificate.Subject -match ''O=Microsoft Corporation'') ' +
+       '{ ''OK'' | Out-File -Encoding ascii ''' + MarkerFile + ''' }"',
+       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if FileExists(MarkerFile) and LoadStringsFromFile(MarkerFile, Lines) then
+    Result := (GetArrayLength(Lines) > 0) and (Pos('OK', Lines[0]) > 0);
+end;
+
 // Downloads and quietly installs the .NET 10 Desktop Runtime. Never shows a
 // dialog itself - callers decide what to tell the user, if anyone's there to
-// tell. Returns True if the runtime is present afterward.
+// tell. Returns True only if the runtime is genuinely present afterward.
 function InstallDesktopRuntimeQuietly(): Boolean;
 var
   ResultCode: Integer;
@@ -115,13 +173,33 @@ var
 begin
   Result := False;
   DownloadPath := ExpandConstant('{tmp}\windowsdesktop-runtime-10-win-x64.exe');
-  if Exec(ExpandConstant('{cmd}'), '/C curl -L -o "' + DownloadPath + '" ' +
-          'https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe',
-          '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and FileExists(DownloadPath) then
+  // Never reuse a file that's already sitting at the target path.
+  DeleteFile(DownloadPath);
+
+  // curl.exe directly (no cmd.exe wrapper); -f fails on HTTP errors, --proto
+  // and --tlsv1.2 keep the transfer on modern HTTPS, and we check the exit code.
+  if not Exec(ExpandConstant('{sys}\curl.exe'),
+              '-fsSL --proto "=https" --tlsv1.2 -o "' + DownloadPath + '" ' +
+              'https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe',
+              '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    Exit;
+  if (ResultCode <> 0) or (not FileExists(DownloadPath)) then
+    Exit;
+
+  // Only execute it if Microsoft actually signed it.
+  if not IsSignedByMicrosoft(DownloadPath) then
   begin
-    Exec(DownloadPath, '/install /quiet /norestart', '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode);
-    Result := IsDesktopRuntimeInstalled();
+    DeleteFile(DownloadPath);
+    Exit;
   end;
+
+  if not Exec(DownloadPath, '/install /quiet /norestart', '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode) then
+    Exit;
+  // 0 = installed, 3010 = installed, reboot required.
+  if (ResultCode <> 0) and (ResultCode <> 3010) then
+    Exit;
+
+  Result := IsDesktopRuntimeInstalled();
 end;
 
 function InitializeSetup(): Boolean;

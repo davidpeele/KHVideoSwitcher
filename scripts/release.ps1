@@ -52,10 +52,27 @@ if (-not $SkipTests) {
     if ($LASTEXITCODE -ne 0) { throw "DeviceCheck failed to run." }
 }
 
+Write-Host "== Building installer exe =="
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "build-installer.ps1") -Version $Version
+if ($LASTEXITCODE -ne 0) { throw "build-installer.ps1 failed." }
+$setupExe = Join-Path $repo "dist-installer\KHVideoSwitcher-Setup-$Version.exe"
+if (-not (Test-Path $setupExe)) { throw "Installer exe not found at $setupExe" }
+
 Write-Host "== Zipping =="
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path (Join-Path $repo "dist\*") -DestinationPath $zip
 Write-Host ("   {0} ({1:0.0} MB)" -f $zip, ((Get-Item $zip).Length / 1MB))
+
+# Publish checksums so users can verify downloads. (The binaries are not
+# Authenticode-signed: a code-signing certificate is a recurring paid expense
+# for a volunteer project. SHA-256 is the free substitute, and is why the
+# README documents the SmartScreen warning users will see.)
+Write-Host "== Writing SHA256SUMS.txt =="
+$sums = Join-Path $repo "SHA256SUMS.txt"
+Get-FileHash -Algorithm SHA256 $setupExe, $zip |
+    ForEach-Object { "{0}  {1}" -f $_.Hash.ToLower(), (Split-Path $_.Path -Leaf) } |
+    Set-Content -Encoding ascii $sums
+Get-Content $sums | ForEach-Object { Write-Host "   $_" }
 
 if ($DryRun) {
     Write-Host "== Dry run complete (no tag, no release) =="
@@ -67,7 +84,7 @@ git tag $tag
 git push origin HEAD --tags
 if ($LASTEXITCODE -ne 0) { throw "git push failed." }
 
-$releaseArgs = @('release', 'create', $tag, $zip, '--title', "KH Video Switcher $tag")
+$releaseArgs = @('release', 'create', $tag, $setupExe, $zip, $sums, '--title', "KH Video Switcher $tag")
 if ($Notes) { $releaseArgs += @('--notes', $Notes) } else { $releaseArgs += '--generate-notes' }
 & gh @releaseArgs
 if ($LASTEXITCODE -ne 0) { throw "gh release create failed." }

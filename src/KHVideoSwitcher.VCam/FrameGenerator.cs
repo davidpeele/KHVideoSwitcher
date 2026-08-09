@@ -158,7 +158,7 @@ namespace KHVideoSwitcher.VCam
 
             // Pull the newest frame if one is available; on a missed read keep
             // showing the previous frame rather than blinking to standby.
-            if (_channel.TryOpen() &&
+            if (_channel.TryOpenForRead() &&
                 _channel.TryReadFrame(_sharedPixels, out var fw, out var fh, out var ageMs) &&
                 ageMs <= StaleFrameMs)
             {

@@ -35,6 +35,12 @@ if (args.Length > 0 && args[0].Equals("detecttest", StringComparison.OrdinalIgno
     return;
 }
 
+if (args.Length > 0 && args[0].Equals("channelfuzz", StringComparison.OrdinalIgnoreCase))
+{
+    RunChannelFuzzTest();
+    return;
+}
+
 if (args.Length > 0 && args[0].Equals("wgctest", StringComparison.OrdinalIgnoreCase))
 {
     await RunWgcTestAsync(args.Length > 1 ? args[1] : "Notepad", args.Length > 2 ? args[2] : "wgc-test.png");
@@ -145,6 +151,84 @@ foreach (var dev in monitorDevices)
 }
 
 Console.WriteLine("\nDevice check complete.");
+
+// Shared-memory hardening test. Writes hostile geometry directly into the
+// section header (simulating a malicious local process) and verifies the reader
+// rejects it instead of copying out of bounds. Includes the specific integer
+// overflow combinations that defeated the original 32-bit bounds checks.
+static void RunChannelFuzzTest()
+{
+    Console.WriteLine("=== KH Video Switcher — Shared Channel Hardening Test ===\n");
+
+    // A session-local section: creating a Global\ one needs SeCreateGlobalPrivilege
+    // (only the Frame Server service has it). The validation under test is identical.
+    var testSection = $"Local\\KHVideoSwitcher.ChannelFuzz.{Environment.ProcessId}";
+    using var channel = new KHVideoSwitcher.VCam.SharedFrameChannel(testSection);
+    if (!channel.TryOpenForWrite())
+    {
+        Console.WriteLine($"FAIL: could not open the test channel " +
+            $"(openErr {channel.LastOpenError}, createErr {channel.LastCreateError}).");
+        return;
+    }
+
+    // Big enough for the legitimate 320x180 frame (230,400 bytes), far too small
+    // for what the hostile headers below would make an unchecked reader write.
+    var dest = new byte[512 * 1024];
+    var failures = 0;
+
+    void Expect(string name, int w, int h, int stride, bool shouldAccept)
+    {
+        // Publish a well-formed frame first so magic/seq/active-slot are sane...
+        channel.WriteFrame(320, 180, 320 * 4, _ => { });
+        // ...then poke the hostile geometry straight into the active slot header,
+        // exactly as another process with write access could have.
+        channel.DangerousOverwriteActiveGeometryForTesting(w, h, stride);
+
+        bool accepted;
+        try
+        {
+            accepted = channel.TryReadFrame(dest, out _, out _, out _);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"  FAIL {name}: threw {ex.GetType().Name} (should return false, not throw)");
+            failures++;
+            return;
+        }
+
+        if (accepted != shouldAccept)
+        {
+            Console.WriteLine($"  FAIL {name}: accepted={accepted}, expected={shouldAccept}");
+            failures++;
+        }
+        else
+        {
+            Console.WriteLine($"  ok   {name} -> {(accepted ? "accepted" : "rejected")}");
+        }
+    }
+
+    // The original exploit: every 32-bit check passes, the row loop writes ~4 GB.
+    Expect("overflow stride*h and w*h*4 (int wrap)", 65536, 16384, 262145, false);
+    // Fast-path variant: w*h*4 wraps to 0.
+    Expect("overflow w*h*4 to zero", 268435456, 4, 268435456 * 4, false);
+    Expect("negative width", -1, 100, 4, false);
+    Expect("negative height", 100, -1, 400, false);
+    Expect("negative stride", 100, 100, -4, false);
+    Expect("int.MaxValue height", 320, int.MaxValue, 1280, false);
+    Expect("int.MinValue stride", 320, 180, int.MinValue, false);
+    Expect("width beyond MaxWidth", 4096, 180, 4096 * 4, false);
+    Expect("height beyond MaxHeight", 320, 4320, 1280, false);
+    Expect("stride smaller than a row", 320, 180, 640, false);
+    Expect("zero dimensions", 0, 0, 0, false);
+    // Sanity: a legitimate frame that fits the destination is still accepted.
+    Expect("valid 320x180 frame", 320, 180, 320 * 4, true);
+    // Valid geometry that simply doesn't fit this destination buffer.
+    Expect("valid 1920x1080 into small buffer", 1920, 1080, 1920 * 4, false);
+
+    Console.WriteLine(failures == 0
+        ? "\nAll shared-channel hardening checks PASSED (no out-of-bounds, no exceptions)."
+        : $"\n{failures} hardening check(s) FAILED.");
+}
 
 // Media state detector test: drives synthetic frames through the detector and
 // checks the classified states (video / still / no-media) with real timing.
@@ -359,7 +443,10 @@ static async Task RunPtzTestAsync(string outputDir)
     Console.WriteLine("=== KH Video Switcher — PTZ Compositor Test ===\n");
 
     var cameras = await CameraCaptureService.ListCamerasAsync();
-    var physical = cameras.FirstOrDefault(c => c.Name.Contains("Logitech", StringComparison.OrdinalIgnoreCase));
+    // Prefer the external Logitech when present, but fall back to any real
+    // camera (never our own virtual one) so the test runs on any machine.
+    var physical = cameras.FirstOrDefault(c => c.Name.Contains("Logitech", StringComparison.OrdinalIgnoreCase))
+                   ?? cameras.FirstOrDefault(c => !c.Name.Contains("KH Video Switcher", StringComparison.OrdinalIgnoreCase));
     if (physical is null)
     {
         Console.WriteLine("FAIL: physical camera not found.");
@@ -448,7 +535,10 @@ static async Task RunVCamEndToEndTestAsync(string outputPath)
     Console.WriteLine("=== KH Video Switcher — Virtual Camera End-to-End Test ===\n");
 
     var cameras = await CameraCaptureService.ListCamerasAsync();
-    var physical = cameras.FirstOrDefault(c => c.Name.Contains("Logitech", StringComparison.OrdinalIgnoreCase));
+    // Prefer the external Logitech when present, but fall back to any real
+    // camera (never our own virtual one) so the test runs on any machine.
+    var physical = cameras.FirstOrDefault(c => c.Name.Contains("Logitech", StringComparison.OrdinalIgnoreCase))
+                   ?? cameras.FirstOrDefault(c => !c.Name.Contains("KH Video Switcher", StringComparison.OrdinalIgnoreCase));
     if (physical is null)
     {
         Console.WriteLine("FAIL: physical camera (Logitech) not found.");
@@ -470,7 +560,7 @@ static async Task RunVCamEndToEndTestAsync(string outputPath)
     long published = 0;
     service.FrameArrived += () =>
     {
-        if (channel.TryOpen())
+        if (channel.TryOpenForWrite())
         {
             int w = service.Width, h = service.Height;
             if (channel.WriteFrame(w, h, w * 4, dest => service.TryCopyLatestFrame(dest, w * h * 4)))
