@@ -488,3 +488,4 @@ dist/
 
 dist-installer/
 .claude/
+SHA256SUMS.txt

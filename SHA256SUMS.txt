@@ -1,2 +1,0 @@
-1a38063c81cb54884d223b95f436d7d939e354863e580aaa4b0cb118deb63f12  KHVideoSwitcher-Setup-1.2.0.exe
-bbf37a8132c5ab70c0e7d64fa846eede031d08528bfc43cbfc74626a836726b4  KHVideoSwitcher-v1.2.0.zip
