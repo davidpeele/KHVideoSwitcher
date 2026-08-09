@@ -1,69 +1,103 @@
 <Window x:Class="KHVideoSwitcher.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="KH Video Switcher — Settings" Height="420" Width="560"
-        Background="#FF1E1E1E" WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+        Title="KH Video Switcher — Settings" Height="560" Width="520"
+        Background="{StaticResource BgBrush}" FontFamily="{StaticResource BodyFont}"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
     <Window.Resources>
-        <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#FFCCCCCC"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
+        <Style TargetType="TextBlock" x:Key="SliderCaptionStyle">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
         </Style>
-        <Style TargetType="Slider">
-            <Setter Property="VerticalAlignment" Value="Center"/>
-            <Setter Property="Margin" Value="10,0"/>
+        <Style TargetType="TextBlock" x:Key="SliderValueStyle">
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
         </Style>
     </Window.Resources>
-    <Grid Margin="20">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="190"/>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="70"/>
-        </Grid.ColumnDefinitions>
+    <Grid Margin="22,20">
         <Grid.RowDefinitions>
-            <RowDefinition Height="40"/>
-            <RowDefinition Height="16"/>
-            <RowDefinition Height="30"/>
-            <RowDefinition Height="40"/>
-            <RowDefinition Height="40"/>
-            <RowDefinition Height="40"/>
-            <RowDefinition Height="16"/>
-            <RowDefinition Height="40"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="150"/>
+            <RowDefinition Height="20"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Fade duration"/>
-        <Slider x:Name="FadeSlider" Grid.Column="1" Minimum="0" Maximum="1000"
-                TickFrequency="50" IsSnapToTickEnabled="True" ValueChanged="Any_ValueChanged"/>
-        <TextBlock x:Name="FadeLabel" Grid.Column="2" Text="300 ms" HorizontalAlignment="Right"/>
+        <Border Grid.Row="0" BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,10">
+            <TextBlock Text="Settings" FontFamily="{StaticResource HeadingFont}" FontSize="18"
+                       Foreground="{StaticResource TextBrush}"/>
+        </Border>
 
-        <TextBlock Grid.Row="2" Grid.ColumnSpan="3" Text="OVER-THE-SHOULDER MEDIA BOX"
-                   Foreground="#FF888888" FontWeight="Bold" FontSize="12"/>
+        <!-- Crossfade duration -->
+        <StackPanel Grid.Row="2">
+            <DockPanel LastChildFill="False" Margin="0,0,0,6">
+                <TextBlock Text="CROSSFADE DURATION" Style="{StaticResource SliderCaptionStyle}" DockPanel.Dock="Left"/>
+                <TextBlock x:Name="FadeLabel" Text="300 ms" Style="{StaticResource SliderValueStyle}" DockPanel.Dock="Right"/>
+            </DockPanel>
+            <Slider x:Name="FadeSlider" Style="{StaticResource AccentSliderStyle}" Minimum="0" Maximum="1000"
+                    TickFrequency="50" IsSnapToTickEnabled="True" ValueChanged="Any_ValueChanged"/>
+        </StackPanel>
 
-        <TextBlock Grid.Row="3" Text="Media box size"/>
-        <Slider x:Name="InsetSizeSlider" Grid.Row="3" Grid.Column="1" Minimum="20" Maximum="65"
-                ValueChanged="Any_ValueChanged"/>
-        <TextBlock x:Name="InsetSizeLabel" Grid.Row="3" Grid.Column="2" Text="42%" HorizontalAlignment="Right"/>
+        <!-- Over-the-shoulder box size -->
+        <StackPanel Grid.Row="4">
+            <DockPanel LastChildFill="False" Margin="0,0,0,6">
+                <TextBlock Text="OVER-THE-SHOULDER BOX SIZE" Style="{StaticResource SliderCaptionStyle}" DockPanel.Dock="Left"/>
+                <TextBlock x:Name="InsetSizeLabel" Text="42%" Style="{StaticResource SliderValueStyle}" DockPanel.Dock="Right"/>
+            </DockPanel>
+            <Slider x:Name="InsetSizeSlider" Style="{StaticResource AccentSliderStyle}" Minimum="10" Maximum="50"
+                    ValueChanged="Any_ValueChanged"/>
+        </StackPanel>
 
-        <TextBlock Grid.Row="4" Text="Border from top"/>
-        <Slider x:Name="InsetTopSlider" Grid.Row="4" Grid.Column="1" Minimum="0" Maximum="300"
-                ValueChanged="Any_ValueChanged"/>
-        <TextBlock x:Name="InsetTopLabel" Grid.Row="4" Grid.Column="2" Text="72 px" HorizontalAlignment="Right"/>
+        <!-- Box top / right margins -->
+        <Grid Grid.Row="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="16"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <DockPanel LastChildFill="False" Margin="0,0,0,6">
+                    <TextBlock Text="BOX TOP MARGIN" Style="{StaticResource SliderCaptionStyle}" DockPanel.Dock="Left"/>
+                    <TextBlock x:Name="InsetTopLabel" Text="72 px" Style="{StaticResource SliderValueStyle}" DockPanel.Dock="Right"/>
+                </DockPanel>
+                <Slider x:Name="InsetTopSlider" Style="{StaticResource AccentSliderStyle}" Minimum="0" Maximum="80"
+                        ValueChanged="Any_ValueChanged"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <DockPanel LastChildFill="False" Margin="0,0,0,6">
+                    <TextBlock Text="BOX RIGHT MARGIN" Style="{StaticResource SliderCaptionStyle}" DockPanel.Dock="Left"/>
+                    <TextBlock x:Name="InsetRightLabel" Text="56 px" Style="{StaticResource SliderValueStyle}" DockPanel.Dock="Right"/>
+                </DockPanel>
+                <Slider x:Name="InsetRightSlider" Style="{StaticResource AccentSliderStyle}" Minimum="0" Maximum="80"
+                        ValueChanged="Any_ValueChanged"/>
+            </StackPanel>
+        </Grid>
 
-        <TextBlock Grid.Row="5" Text="Border from right side"/>
-        <Slider x:Name="InsetRightSlider" Grid.Row="5" Grid.Column="1" Minimum="0" Maximum="300"
-                ValueChanged="Any_ValueChanged"/>
-        <TextBlock x:Name="InsetRightLabel" Grid.Row="5" Grid.Column="2" Text="56 px" HorizontalAlignment="Right"/>
+        <!-- Live preview of the OTS inset box position/size -->
+        <Border Grid.Row="8" Width="220" Height="130" Background="{StaticResource VideoPaneFillBrush}"
+                BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" HorizontalAlignment="Center">
+            <Canvas>
+                <Border x:Name="InsetPreviewBox" Background="{StaticResource AccentBrush}" Opacity="0.85"/>
+            </Canvas>
+        </Border>
 
-        <TextBlock Grid.Row="7" Grid.ColumnSpan="2" Text="Hide Windows capture highlight border"
-                   ToolTip="Asks Windows not to draw the yellow border around the captured window/display. Applies the next time Capture is started."/>
-        <CheckBox x:Name="HideBorderCheck" Grid.Row="7" Grid.Column="2" HorizontalAlignment="Right"
-                  VerticalAlignment="Center" Checked="Any_ValueChanged" Unchecked="Any_ValueChanged"/>
+        <Button x:Name="HideBorderTag" Grid.Row="10" Style="{StaticResource StatusTagStyle}" HorizontalAlignment="Left"
+                Click="HideBorderTag_Click"
+                ToolTip="Asks Windows not to draw the yellow border around the captured window/display. Applies the next time Capture is started.">
+            <TextBlock><Run Text="HIDE CAPTURE BORDER · "/><Run x:Name="HideBorderStateRun" Text="ON"/></TextBlock>
+        </Button>
 
-        <TextBlock Grid.Row="8" Grid.ColumnSpan="3" TextWrapping="Wrap" Foreground="#FF777777" FontSize="11"
-                   Text="Changes apply immediately and are saved automatically. Tip: put PREVIEW in OTS (F3) while adjusting the media box to see it live."/>
-
-        <Button Grid.Row="9" Grid.Column="2" Content="Close" Padding="0,6" Click="Close_Click"
-                Background="#FF333333" Foreground="White" BorderBrush="#FF555555"/>
+        <Button Grid.Row="12" Content="Close" Style="{StaticResource TransportOutlineButtonStyle}" Height="38" Width="100"
+                HorizontalAlignment="Right" Click="Close_Click"/>
     </Grid>
 </Window>

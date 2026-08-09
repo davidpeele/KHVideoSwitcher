@@ -1,0 +1,277 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ===================== Design tokens (status-rail redesign) =====================
+         Source: "Status-Rail UI Redesign" handoff. One rule everywhere:
+         engaged/ON = solid accent fill; idle/OFF = transparent + hairline border.
+         "Needs attention" (Set Stock) = dashed accent-700 outline until resolved. -->
+
+    <SolidColorBrush x:Key="BgBrush" Color="#F2F2F3"/>
+    <SolidColorBrush x:Key="SurfaceBrush" Color="#E9E9EA"/>
+    <SolidColorBrush x:Key="TextBrush" Color="#1D1F20"/>
+    <SolidColorBrush x:Key="MutedTextBrush" Color="#8C1D1F20"/>
+    <SolidColorBrush x:Key="DividerBrush" Color="#2E1D1F20"/>
+    <SolidColorBrush x:Key="DividerFaintBrush" Color="#1F1D1F20"/>
+    <SolidColorBrush x:Key="AccentBrush" Color="#5980A6"/>
+    <SolidColorBrush x:Key="Accent100Brush" Color="#EEF6FF"/>
+    <SolidColorBrush x:Key="Accent700Brush" Color="#416180"/>
+    <SolidColorBrush x:Key="VideoPaneFillBrush" Color="#2B2B2D"/>
+    <SolidColorBrush x:Key="KickerBrush" Color="#94BCE3"/>
+    <SolidColorBrush x:Key="ZoomLabelBrush" Color="#D6EBFF"/>
+    <SolidColorBrush x:Key="TakeBgBrush" Color="#1D2D3D"/>
+    <SolidColorBrush x:Key="TakeHoverBgBrush" Color="#2C455D"/>
+    <SolidColorBrush x:Key="ToolbarHoverBrush" Color="#0D1D1F20"/>
+    <!-- Muted hint text (F1/F2/F3, preset tags) needs a different muted color when
+         sitting on the solid accent fill vs. the idle transparent background,
+         since WPF Run has no per-run opacity to fade relative to its parent. -->
+    <SolidColorBrush x:Key="MutedOnAccentBrush" Color="#B3F2F2F3"/>
+
+    <!-- Fonts embedded from Fonts\*.ttf (Google Fonts, SIL OFL - see Fonts\OFL.txt).
+         Only the weights the design actually uses: Barlow 400 for body/captions,
+         Barlow Condensed SemiBold (600) for all headings/buttons/tags, Barlow
+         Condensed Medium (500) for the small ZOOM caption. Static Google Fonts
+         exports give non-Regular/Bold weights their own family name, so each is
+         referenced by its literal embedded family name rather than a FontWeight. -->
+    <FontFamily x:Key="BodyFont">/Fonts/#Barlow</FontFamily>
+    <FontFamily x:Key="HeadingFont">/Fonts/#Barlow Condensed SemiBold</FontFamily>
+    <FontFamily x:Key="HeadingMediumFont">/Fonts/#Barlow Condensed Medium</FontFamily>
+
+    <!-- ===================== Base control styles ===================== -->
+
+    <Style x:Key="SectionCaptionStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
+    </Style>
+
+    <!-- Toolbar ComboBox: native behavior/chrome kept, only tokens applied. -->
+    <Style x:Key="ToolbarComboStyle" TargetType="ComboBox">
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="MinWidth" Value="180"/>
+        <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="FontFamily" Value="{StaticResource BodyFont}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Padding" Value="10,0"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
+    <!-- Idle/outline toolbar button (Start, Capture, Settings, Compact, VCam...). -->
+    <Style x:Key="ToolbarButtonStyle" TargetType="Button">
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Padding" Value="16,0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontFamily" Value="{StaticResource HeadingFont}"/>
+        <Setter Property="FontSize" Value="13"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{StaticResource ToolbarHoverBrush}"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Status-rail tag / toolbar toggle: base shape only. Background/Foreground/
+         BorderBrush are set in code per the ON/OFF/attention rule (see
+         MainWindow.xaml.cs ApplyEngagedStyle / ApplyAttentionStyle) - the app is
+         code-behind driven with no bound view-model, so the "one shared rule" is
+         implemented as one shared C# helper instead of a XAML DataTrigger, and
+         this Style supplies the one shared shape all of them use. -->
+    <ControlTemplate x:Key="StatusTagTemplate" TargetType="Button">
+        <Border Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.6"/>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <!-- "Needs attention" variant (Set Stock, unresolved): a real dashed outline.
+         Border has no dash-pattern support, so this uses a Rectangle stroke instead. -->
+    <ControlTemplate x:Key="StatusTagDashedTemplate" TargetType="Button">
+        <Grid>
+            <Rectangle Stroke="{TemplateBinding BorderBrush}" StrokeThickness="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=BorderThickness.Left}"
+                       StrokeDashArray="3,2" Fill="{TemplateBinding Background}"/>
+            <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Grid>
+    </ControlTemplate>
+
+    <Style x:Key="StatusTagStyle" TargetType="Button">
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontFamily" Value="{StaticResource HeadingFont}"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Template" Value="{StaticResource StatusTagTemplate}"/>
+    </Style>
+
+    <!-- CUT and other plain 44px transport buttons. -->
+    <Style x:Key="TransportOutlineButtonStyle" TargetType="Button">
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="Padding" Value="20,0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+        <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontFamily" Value="{StaticResource HeadingFont}"/>
+        <Setter Property="FontSize" Value="14"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{StaticResource ToolbarHoverBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- TAKE: the one heavy, solid, dark action - strongest visual weight. -->
+    <Style x:Key="TakeButtonStyle" TargetType="Button">
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="Padding" Value="28,0"/>
+        <Setter Property="Background" Value="{StaticResource TakeBgBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource BgBrush}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontFamily" Value="{StaticResource HeadingFont}"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" Background="{TemplateBinding Background}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource TakeHoverBgBrush}"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Scene tile (CAM/MEDIA/OTS): 3 equal tiles, 44px, dot + label + F-key hint.
+         Background/Foreground/BorderBrush set in code per the engaged rule. -->
+    <Style x:Key="SceneTileStyle" TargetType="Button">
+        <Setter Property="Height" Value="44"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Preset tile: saved = solid accent-700 border; empty = dashed divider border
+         (code toggles Template between StatusTagTemplate / StatusTagDashedTemplate). -->
+    <Style x:Key="PresetTileStyle" TargetType="Button">
+        <Setter Property="Height" Value="52"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="ToolTip" Value="Left-click: recall (fade) • Right-click: save current PREVIEW framing"/>
+        <Setter Property="Template" Value="{StaticResource StatusTagTemplate}"/>
+    </Style>
+
+    <!-- Accent-colored slider (Preview zoom bar, Settings sliders). WPF has no
+         single "accent-color" property like CSS, so the thumb/track are retemplated
+         with a thin track and a small filled accent thumb. -->
+    <Style x:Key="AccentSliderThumbStyle" TargetType="Thumb">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border Background="{StaticResource AccentBrush}" Width="14" Height="14"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="AccentSliderStyle" TargetType="Slider">
+        <Setter Property="Height" Value="24"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid VerticalAlignment="Center">
+                        <Border Height="3" Background="{StaticResource DividerBrush}" VerticalAlignment="Center"/>
+                        <Track x:Name="PART_Track">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="Slider.DecreaseLarge" Background="{StaticResource AccentBrush}"
+                                              Height="3" BorderThickness="0">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="{StaticResource AccentBrush}" Height="3"/>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="Slider.IncreaseLarge" Background="Transparent" BorderThickness="0">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent" Height="3"/>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource AccentSliderThumbStyle}"/>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Vertical variant for the (now-unused-by-default but kept available) vertical slider case. -->
+    <Style x:Key="AccentSliderVerticalStyle" TargetType="Slider" BasedOn="{StaticResource AccentSliderStyle}">
+        <Setter Property="Orientation" Value="Vertical"/>
+    </Style>
+
+</ResourceDictionary>

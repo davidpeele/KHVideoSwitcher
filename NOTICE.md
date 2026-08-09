@@ -10,3 +10,10 @@ channel and switcher integration are original to KH Video Switcher.
 
 It depends on the **DirectNCore** NuGet package (MIT) by the same author for
 DirectX / Media Foundation interop.
+
+## Barlow & Barlow Condensed fonts (SIL Open Font License 1.1)
+
+The UI in `src/KHVideoSwitcher/Fonts` bundles three static weights of the
+**Barlow** typeface family by Jeremy Tribby — https://github.com/jpt/barlow —
+sourced from Google Fonts (https://github.com/google/fonts). Licensed under
+the SIL Open Font License; see `src/KHVideoSwitcher/Fonts/OFL.txt`.

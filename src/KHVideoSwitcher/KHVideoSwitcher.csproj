@@ -20,4 +20,8 @@
     <Compile Include="..\KHVideoSwitcher.VCam\SharedFrameChannel.cs" Link="VCam\SharedFrameChannel.cs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Fonts\*.ttf" />
+  </ItemGroup>
+
 </Project>

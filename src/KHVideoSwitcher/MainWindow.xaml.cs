@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -13,6 +14,55 @@ namespace KHVideoSwitcher;
 
 public partial class MainWindow : Window
 {
+    // ---------- shared status-rail visual rule ----------
+    // One rule everywhere: engaged/ON = solid accent fill; idle/OFF = outline.
+    // "Needs attention" (Set Stock) = dashed accent-700 outline until resolved.
+    // The app is code-behind driven with no bound view-model, so this is
+    // implemented as one shared helper (rather than a XAML DataTrigger) that
+    // every toggle's Update*() method calls.
+
+    private static Brush Res(string key) => (Brush)Application.Current.Resources[key];
+
+    /// <summary>Applies the engaged/idle fill-vs-outline rule and updates a tag's state Run.</summary>
+    private static void ApplyEngagedStyle(Button tag, Run stateRun, bool on)
+    {
+        if (on)
+        {
+            var accent = Res("AccentBrush");
+            tag.Background = accent;
+            tag.Foreground = Res("BgBrush");
+            tag.BorderBrush = accent;
+        }
+        else
+        {
+            tag.Background = Brushes.Transparent;
+            tag.Foreground = Res("TextBrush");
+            tag.BorderBrush = Res("DividerBrush");
+        }
+        stateRun.Text = on ? "ON" : "OFF";
+    }
+
+    /// <summary>Applies the "needs attention" dashed-outline rule (Set Stock).</summary>
+    private static void ApplyAttentionStyle(Button tag, Run stateRun, bool resolved, string resolvedText, string attentionText)
+    {
+        tag.Background = Brushes.Transparent;
+        if (resolved)
+        {
+            tag.Foreground = Res("MutedTextBrush");
+            tag.BorderBrush = Res("DividerBrush");
+            tag.BorderThickness = new Thickness(1);
+            tag.Template = (ControlTemplate)Application.Current.Resources["StatusTagTemplate"];
+        }
+        else
+        {
+            tag.Foreground = Res("Accent700Brush");
+            tag.BorderBrush = Res("Accent700Brush");
+            tag.BorderThickness = new Thickness(1.5);
+            tag.Template = (ControlTemplate)Application.Current.Resources["StatusTagDashedTemplate"];
+        }
+        stateRun.Text = resolved ? resolvedText : attentionText;
+    }
+
     private const long MediaStaleMs = 1500;
 
     private readonly CameraCaptureService _camera = new();
@@ -85,7 +135,9 @@ public partial class MainWindow : Window
             UpdateSceneButtons();
             UpdateAutoTakeButton();
             UpdateAutoScenesButton();
-            DragModeCheck.IsChecked = _settings.DragMovesPicture;
+            UpdateDragModeTag();
+            UpdateVCamRailTag();
+            UpdateStockReminder();
             SyncZoomSlider();
             _detector.ImportStock(_settings.StockFingerprint);
             ApplySettings();
@@ -314,21 +366,21 @@ public partial class MainWindow : Window
     private async void VCamButton_Click(object sender, RoutedEventArgs e)
     {
         VCamButton.IsEnabled = false;
+        VCamRailTag.IsEnabled = false;
         try
         {
             if (_vcam.IsRunning)
             {
                 _vcamOn = false;
                 _vcam.Stop();
-                VCamButton.Content = "Virtual Camera: Off";
             }
             else
             {
                 await Task.Run(_vcam.Start);
                 _vcamChannel.TryOpenForWrite();
                 _vcamOn = true;
-                VCamButton.Content = "Virtual Camera: ON";
             }
+            UpdateVCamRailTag();
         }
         catch (Exception ex)
         {
@@ -338,8 +390,11 @@ public partial class MainWindow : Window
         finally
         {
             VCamButton.IsEnabled = true;
+            VCamRailTag.IsEnabled = true;
         }
     }
+
+    private void UpdateVCamRailTag() => ApplyEngagedStyle(VCamRailTag, VCamStateRun, _vcam.IsRunning);
 
     // ---------- media capture ----------
 
@@ -446,13 +501,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateAutoScenesButton()
-    {
-        AutoScenesButton.Content = _settings.AutoScenes ? "AUTO: ON" : "AUTO: OFF";
-        AutoScenesButton.Background = new SolidColorBrush(_settings.AutoScenes
-            ? Color.FromRgb(0x1F, 0x6E, 0x1F)
-            : Color.FromRgb(0x33, 0x33, 0x33));
-    }
+    private void UpdateAutoScenesButton() => ApplyEngagedStyle(AutoScenesButton, AutoScenesStateRun, _settings.AutoScenes);
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
@@ -494,10 +543,10 @@ public partial class MainWindow : Window
         if (gridW <= 60 || !IsLoaded)
             return;
 
-        double paneW = _compact ? gridW : Math.Max(120, (gridW - 12) / 2);
-        double videoW = paneW - 48; // zoom slider column + border
-        double budget = RootGrid.ActualHeight - ToolbarPanel.ActualHeight - TransportPanel.ActualHeight
-                        - StatusText.ActualHeight - 60;
+        double paneW = _compact ? gridW : Math.Max(120, (gridW - 14) / 2);
+        double videoW = paneW - 2; // border
+        double budget = RootGrid.ActualHeight - ToolbarPanel.ActualHeight - StatusRailPanel.ActualHeight
+                        - TransportPanel.ActualHeight - PresetsPanel.ActualHeight - StatusText.ActualHeight - 60;
         double h = Math.Min(videoW * 9.0 / 16 + 4, Math.Max(150, budget));
         PreviewBorder.Height = h;
         ProgramBorder.Height = h;
@@ -544,16 +593,8 @@ public partial class MainWindow : Window
 
     private void UpdateStockReminder()
     {
-        if (GetStockReminder() is not null)
-        {
-            StockButton.Background = new SolidColorBrush(Color.FromRgb(0xB5, 0x76, 0x14));
-            StockButton.Foreground = Brushes.White;
-        }
-        else
-        {
-            StockButton.ClearValue(Button.BackgroundProperty);
-            StockButton.ClearValue(Button.ForegroundProperty);
-        }
+        bool resolved = GetStockReminder() is null;
+        ApplyAttentionStyle(StockButton, StockStateRun, resolved, "SET", "NOT SET");
     }
 
     /// <summary>In Auto-Take mode, scene selection goes straight to Program.</summary>
@@ -570,13 +611,7 @@ public partial class MainWindow : Window
         UpdateAutoTakeButton();
     }
 
-    private void UpdateAutoTakeButton()
-    {
-        AutoTakeButton.Content = _settings.AutoTakeScenes ? "Auto-Take: ON" : "Auto-Take: Off";
-        AutoTakeButton.Background = new SolidColorBrush(_settings.AutoTakeScenes
-            ? Color.FromRgb(0x7A, 0x5A, 0x1F)
-            : Color.FromRgb(0x33, 0x33, 0x33));
-    }
+    private void UpdateAutoTakeButton() => ApplyEngagedStyle(AutoTakeButton, AutoTakeStateRun, _settings.AutoTakeScenes);
 
     // ---------- scenes ----------
 
@@ -614,11 +649,27 @@ public partial class MainWindow : Window
 
     private void UpdateSceneButtons()
     {
-        var active = new SolidColorBrush(Color.FromRgb(0x2A, 0x5E, 0x2A));
-        var idle = new SolidColorBrush(Color.FromRgb(0x33, 0x33, 0x33));
-        SceneCamButton.Background = _previewKind == SceneKind.Camera ? active : idle;
-        SceneMediaButton.Background = _previewKind == SceneKind.Media ? active : idle;
-        SceneOtsButton.Background = _previewKind == SceneKind.OverShoulder ? active : idle;
+        SetSceneTile(SceneCamButton, SceneCamDot, SceneCamHint, _previewKind == SceneKind.Camera);
+        SetSceneTile(SceneMediaButton, SceneMediaDot, SceneMediaHint, _previewKind == SceneKind.Media);
+        SetSceneTile(SceneOtsButton, SceneOtsDot, SceneOtsHint, _previewKind == SceneKind.OverShoulder);
+    }
+
+    private static void SetSceneTile(Button tile, Run dot, Run hint, bool active)
+    {
+        if (active)
+        {
+            var accent = Res("AccentBrush");
+            tile.Background = accent;
+            tile.Foreground = Res("BgBrush");
+            hint.Foreground = Res("MutedOnAccentBrush");
+        }
+        else
+        {
+            tile.Background = Brushes.Transparent;
+            tile.Foreground = Res("TextBrush");
+            hint.Foreground = Res("MutedTextBrush");
+        }
+        dot.Text = active ? "●" : "○";
     }
 
     private void WideButton_Click(object sender, RoutedEventArgs e)
@@ -682,8 +733,31 @@ public partial class MainWindow : Window
         for (var i = 0; i < buttons.Length; i++)
         {
             var preset = i < _settings.Presets.Length ? _settings.Presets[i] : null;
-            buttons[i].Content = preset is { } p ? $"{i + 1} {KindTag(p.Kind)}" : $"{i + 1}";
-            buttons[i].Foreground = preset is not null ? Brushes.White : new SolidColorBrush(Color.FromRgb(0x77, 0x77, 0x77));
+            var button = buttons[i];
+            bool saved = preset is not null;
+
+            var stack = new StackPanel { Orientation = Orientation.Vertical, HorizontalAlignment = HorizontalAlignment.Center };
+            stack.Children.Add(new TextBlock
+            {
+                Text = (i + 1).ToString(),
+                FontFamily = (FontFamily)Application.Current.Resources["HeadingFont"],
+                FontSize = 15,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            });
+            stack.Children.Add(new TextBlock
+            {
+                Text = saved ? KindTag(preset!.Value.Kind) : "",
+                FontSize = 10,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 2, 0, 0),
+            });
+            button.Content = stack;
+
+            button.Foreground = saved ? Res("TextBrush") : Res("MutedTextBrush");
+            button.BorderBrush = saved ? Res("Accent700Brush") : Res("DividerBrush");
+            button.Template = saved
+                ? (ControlTemplate)Application.Current.Resources["StatusTagTemplate"]
+                : (ControlTemplate)Application.Current.Resources["StatusTagDashedTemplate"];
         }
     }
 
@@ -832,14 +906,14 @@ public partial class MainWindow : Window
         UpdateCropOverlay();
     }
 
-    private void DragModeCheck_Changed(object sender, RoutedEventArgs e)
+    private void DragModeTag_Click(object sender, RoutedEventArgs e)
     {
-        if (DragModeCheck.IsChecked is { } isChecked && isChecked != _settings.DragMovesPicture)
-        {
-            _settings.DragMovesPicture = isChecked;
-            _settings.Save();
-        }
+        _settings.DragMovesPicture = !_settings.DragMovesPicture;
+        _settings.Save();
+        UpdateDragModeTag();
     }
+
+    private void UpdateDragModeTag() => ApplyEngagedStyle(DragModeTag, DragModeStateRun, _settings.DragMovesPicture);
 
     private void PreviewCell_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
