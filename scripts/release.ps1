@@ -47,9 +47,19 @@ Write-Host "== Building and packaging $tag =="
 if ($LASTEXITCODE -ne 0) { throw "publish.ps1 failed." }
 
 if (-not $SkipTests) {
-    Write-Host "== Running detector self-test =="
-    & dotnet run --project (Join-Path $repo "tools\DeviceCheck") -c Release -- detecttest
+    $deviceCheck = Join-Path $repo "tools\DeviceCheck"
+
+    Write-Host "== Running shared-channel hardening test =="
+    $fuzz = & dotnet run --project $deviceCheck -c Release -- channelfuzz
+    $fuzz | Write-Host
     if ($LASTEXITCODE -ne 0) { throw "DeviceCheck failed to run." }
+    if ($fuzz -match 'FAILED') { throw "Shared-channel hardening test FAILED - refusing to release." }
+
+    Write-Host "== Running detector self-test =="
+    $detect = & dotnet run --project $deviceCheck -c Release -- detecttest
+    $detect | Write-Host
+    if ($LASTEXITCODE -ne 0) { throw "DeviceCheck failed to run." }
+    if ($detect -match 'FAILED') { throw "Detector self-test FAILED - refusing to release." }
 }
 
 Write-Host "== Building installer exe =="
