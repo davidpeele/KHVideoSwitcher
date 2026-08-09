@@ -58,15 +58,30 @@ own user folder. Use it when:
 The installer tells you which of those two situations you're in when it
 finishes. You can re-run it later and pick all-users mode to add the camera.
 
-> **Expect a SmartScreen warning.** The downloads are not Authenticode-signed
-> (a code-signing certificate is a recurring paid expense this volunteer
-> project doesn't carry), so Windows shows *"Windows protected your PC"* on
-> first run — click **More info → Run anyway**. To confirm you have the genuine
-> file, compare its hash against `SHA256SUMS.txt` on the release page:
+> **Expect Windows to complain, and here's the honest reason.** These downloads
+> are not Authenticode-signed — a code-signing certificate is a recurring paid
+> expense this volunteer project doesn't carry — so an unsigned installer with
+> no download history can trip two different Windows protections:
+>
+> - **SmartScreen**: *"Windows protected your PC"* → click **More info →
+>   Run anyway**.
+> - **Defender may occasionally report a threat** (typically
+>   `Trojan:Win32/Wacatac.*!ml`). The `!ml` suffix means a machine-learning
+>   guess rather than a known-malware signature, and unsigned installers are a
+>   well-known source of these false alarms. If it happens, please
+>   [open an issue](../../issues) so the build can be submitted to Microsoft
+>   for correction, and use an unaffected release in the meantime.
+>
+> **Always verify what you downloaded** against `SHA256SUMS.txt` on the release
+> page — that check is meaningful whether or not Windows complains:
 >
 > ```powershell
-> Get-FileHash .\KHVideoSwitcher-Setup-1.1.0.exe -Algorithm SHA256
+> Get-FileHash .\KHVideoSwitcher-Setup-1.3.0.exe -Algorithm SHA256
 > ```
+>
+> The full source is in this repository and the release scripts build the
+> published artifacts from it, so anyone who prefers can build their own copy
+> instead (see *Building from source*).
 
 To uninstall, use **Settings → Apps** (or **Add/Remove Programs**) like any
 other Windows application, or run the **Uninstall KH Video Switcher** shortcut

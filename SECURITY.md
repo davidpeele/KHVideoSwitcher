@@ -52,9 +52,17 @@ exit code too. A download that fails any of those checks is deleted, not run.
 
 - **Binaries are not Authenticode-signed.** A code-signing certificate is a
   recurring paid expense that this volunteer project doesn't carry, so Windows
-  SmartScreen warns on first run. `SHA256SUMS.txt` is published with each
-  release so downloads can be verified. This is the main open item; anyone able
-  to donate a certificate is welcome to get in touch.
+  SmartScreen warns on first run and Defender occasionally raises a
+  machine-learning false positive (e.g. `Trojan:Win32/Wacatac.*!ml`) on an
+  unsigned installer with no download reputation. `SHA256SUMS.txt` is published
+  with each release so downloads can be verified regardless. This is the main
+  open item — signing would resolve both problems, and anyone able to sponsor a
+  certificate (or an OSS signing service such as SignPath, or Azure Trusted
+  Signing) is welcome to get in touch.
+
+  If a release is flagged, please open an issue. Flagged builds are submitted to
+  Microsoft at https://www.microsoft.com/en-us/wdsi/filesubmission as false
+  positives, which they typically correct within a few days.
 - Frames in the shared channel are readable by any local process. Any local
   process can also see your camera through the normal Windows camera APIs, so
   this does not widen the exposure meaningfully, but it is worth knowing.
