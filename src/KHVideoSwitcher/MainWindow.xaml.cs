@@ -546,7 +546,8 @@ public partial class MainWindow : Window
         double paneW = _compact ? gridW : Math.Max(120, (gridW - 14) / 2);
         double videoW = paneW - 2; // border
         double budget = RootGrid.ActualHeight - ToolbarPanel.ActualHeight - StatusRailPanel.ActualHeight
-                        - TransportPanel.ActualHeight - PresetsPanel.ActualHeight - StatusText.ActualHeight - 60;
+                        - TransportPanel.ActualHeight - PresetsPanel.ActualHeight - StatusText.ActualHeight
+                        - ZoomBar.ActualHeight - 60;
         double h = Math.Min(videoW * 9.0 / 16 + 4, Math.Max(150, budget));
         PreviewBorder.Height = h;
         ProgramBorder.Height = h;

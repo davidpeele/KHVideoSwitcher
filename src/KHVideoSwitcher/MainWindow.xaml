@@ -84,8 +84,12 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
-            <Grid Grid.Column="0" x:Name="PreviewPane">
-                <Border x:Name="PreviewBorder" Background="{StaticResource VideoPaneFillBrush}"
+            <Grid Grid.Column="0" x:Name="PreviewPane" VerticalAlignment="Top">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" x:Name="PreviewBorder" Background="{StaticResource VideoPaneFillBrush}"
                         BorderBrush="{StaticResource DividerBrush}" BorderThickness="1" VerticalAlignment="Top">
                     <Grid x:Name="PreviewCell" ClipToBounds="True"
                           MouseWheel="PreviewCell_MouseWheel"
@@ -102,18 +106,18 @@
                         <TextBlock Text="PREVIEW" Foreground="{StaticResource KickerBrush}" FontFamily="{StaticResource HeadingFont}"
                                    FontSize="11" Margin="12,8,0,0"
                                    HorizontalAlignment="Left" VerticalAlignment="Top"/>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" HorizontalAlignment="Stretch"
-                                    Margin="12,0,12,10">
-                            <TextBlock Text="ZOOM" Foreground="{StaticResource ZoomLabelBrush}" FontFamily="{StaticResource HeadingMediumFont}"
-                                       FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                            <Slider x:Name="ZoomSlider" Style="{StaticResource AccentSliderStyle}" Width="200"
-                                    Minimum="1" Maximum="8" Value="1" SmallChange="0.05" LargeChange="0.5"
-                                    ValueChanged="ZoomSlider_ValueChanged" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Row="2" x:Name="ZoomReadout" Text="1.0x" Foreground="{StaticResource ZoomLabelBrush}"
-                                       FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                        </StackPanel>
                     </Grid>
                 </Border>
+                <StackPanel Grid.Row="1" x:Name="ZoomBar" Orientation="Horizontal" HorizontalAlignment="Center"
+                            Margin="0,10,0,0" ToolTip="Scroll wheel over PREVIEW or this slider to zoom">
+                    <TextBlock Text="ZOOM" Foreground="{StaticResource MutedTextBrush}" FontFamily="{StaticResource HeadingMediumFont}"
+                               FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <Slider x:Name="ZoomSlider" Style="{StaticResource AccentSliderStyle}" Width="200"
+                            Minimum="1" Maximum="8" Value="1" SmallChange="0.05" LargeChange="0.5"
+                            ValueChanged="ZoomSlider_ValueChanged" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="ZoomReadout" Text="1.0x" Foreground="{StaticResource TextBrush}"
+                               FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                </StackPanel>
             </Grid>
 
             <Grid Grid.Column="2">
