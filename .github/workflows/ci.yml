@@ -1,0 +1,41 @@
+name: CI
+
+# Fast build+test gate on every push and PR. Does not build the installer or
+# publish anything - see release.yml for that.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build solution
+        run: dotnet build KHVideoSwitcher.sln -c Release
+
+      - name: Run shared-channel hardening test
+        shell: pwsh
+        run: |
+          $out = dotnet run --project tools\DeviceCheck -c Release -- channelfuzz
+          $out | Write-Host
+          if ($LASTEXITCODE -ne 0) { throw "DeviceCheck failed to run." }
+          if ($out -match 'FAILED') { throw "Shared-channel hardening test FAILED." }
+
+      - name: Run media-state detector test
+        shell: pwsh
+        run: |
+          $out = dotnet run --project tools\DeviceCheck -c Release -- detecttest
+          $out | Write-Host
+          if ($LASTEXITCODE -ne 0) { throw "DeviceCheck failed to run." }
+          if ($out -match 'FAILED') { throw "Detector self-test FAILED." }

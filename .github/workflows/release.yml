@@ -1,0 +1,119 @@
+name: Release
+
+# Triggered by pushing a version tag (vX.Y.Z) - see scripts/release.ps1, which
+# now just tags and pushes; this workflow does the authoritative build, test,
+# package, (eventually) sign, and publish.
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history/tags, needed for --generate-notes
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $version = $tag.TrimStart('v')
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Tag '$tag' is not vX.Y.Z" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build app + virtual camera
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\publish.ps1
+
+      - name: Run shared-channel hardening test
+        shell: pwsh
+        run: |
+          $out = dotnet run --project tools\DeviceCheck -c Release -- channelfuzz
+          $out | Write-Host
+          if ($LASTEXITCODE -ne 0) { throw "DeviceCheck failed to run." }
+          if ($out -match 'FAILED') { throw "Shared-channel hardening test FAILED - refusing to release." }
+
+      - name: Run media-state detector test
+        shell: pwsh
+        run: |
+          $out = dotnet run --project tools\DeviceCheck -c Release -- detecttest
+          $out | Write-Host
+          if ($LASTEXITCODE -ne 0) { throw "DeviceCheck failed to run." }
+          if ($out -match 'FAILED') { throw "Detector self-test FAILED - refusing to release." }
+
+      - name: Build installer
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build-installer.ps1 -Version ${{ steps.version.outputs.version }}
+
+      # --- SignPath integration goes here once the Foundation application is approved ---
+      # SignPath signs artifacts in-pipeline rather than handing over a private key,
+      # so this step submits the unsigned installer/DLLs and replaces them with the
+      # signed versions before packaging. Left disabled (if: false) until the project
+      # has real SignPath organization/policy IDs and the secrets below are set in
+      # this repo's Settings > Secrets and variables > Actions:
+      #   SIGNPATH_API_TOKEN, SIGNPATH_ORGANIZATION_ID
+      # Confirm the exact action inputs against SignPath's current docs when that
+      # happens - double-check the artifact-configuration-slug / signing-policy-slug
+      # names, which are assigned per project in the SignPath dashboard.
+      # - name: Sign installer with SignPath
+      #   if: false
+      #   uses: signpath-io/github-action-submit-signing-request@v1
+      #   with:
+      #     api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+      #     organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+      #     project-slug: "khvideoswitcher"
+      #     signing-policy-slug: "release-signing"
+      #     artifact-configuration-slug: "installer"
+      #     input-artifact-path: dist-installer\KHVideoSwitcher-Setup-${{ steps.version.outputs.version }}.exe
+      #     output-artifact-path: dist-installer\KHVideoSwitcher-Setup-${{ steps.version.outputs.version }}.exe
+      #     wait-for-completion: true
+
+      - name: Zip the script-install package
+        shell: pwsh
+        run: Compress-Archive -Path dist\* -DestinationPath "KHVideoSwitcher-${{ steps.version.outputs.tag }}.zip"
+
+      - name: Write checksums
+        shell: pwsh
+        run: |
+          $setupExe = "dist-installer\KHVideoSwitcher-Setup-${{ steps.version.outputs.version }}.exe"
+          $zip = "KHVideoSwitcher-${{ steps.version.outputs.tag }}.zip"
+          Get-FileHash -Algorithm SHA256 $setupExe, $zip |
+              ForEach-Object { "{0}  {1}" -f $_.Hash.ToLower(), (Split-Path $_.Path -Leaf) } |
+              Set-Content -Encoding ascii SHA256SUMS.txt
+          Get-Content SHA256SUMS.txt
+
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $notesFile = "release-notes\$tag.md"
+          $args = @(
+            'release', 'create', $tag,
+            "dist-installer\KHVideoSwitcher-Setup-${{ steps.version.outputs.version }}.exe",
+            "KHVideoSwitcher-$tag.zip",
+            "SHA256SUMS.txt",
+            '--title', "KH Video Switcher $tag"
+          )
+          if (Test-Path $notesFile) {
+            $args += @('--notes-file', $notesFile)
+          } else {
+            $args += '--generate-notes'
+          }
+          gh @args
