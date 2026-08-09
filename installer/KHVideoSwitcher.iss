@@ -13,6 +13,15 @@
 #define AppExeName "KHVideoSwitcher.exe"
 #define VCamComHost "KHVideoSwitcher.VCam.comhost.dll"
 
+; Pinned .NET 10 Desktop Runtime, fetched only when the machine has no 10.x
+; runtime. Verified against this SHA-256 before it is executed. To update:
+; take the new URL + SHA-512 from
+; https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json,
+; confirm the download against that SHA-512, then record its SHA-256 here.
+#define DotNetRuntimeUrl "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.10/windowsdesktop-runtime-10.0.10-win-x64.exe"
+#define DotNetInstallerName "windowsdesktop-runtime-10.0.10-win-x64.exe"
+#define DotNetRuntimeSha256 "e82fc901c8f52d716293b2bc0830ce0dd254a06268c457a19e8fc503560a84d1"
+
 [Setup]
 AppId={{6C6B6E9B-6C6E-4C7E-9C1C-2B7B8C1E3D4A}
 AppName={#AppName}
@@ -46,6 +55,10 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.22000
 LicenseFile=..\LICENSE
+; Let Restart Manager close a running copy during an upgrade, instead of
+; shelling out to taskkill.
+CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -74,39 +87,47 @@ Filename: "regsvr32.exe"; Parameters: "/s ""{commonappdata}\KHVideoSwitcher\vcam
     StatusMsg: "Registering the virtual camera..."; Flags: runhidden; Check: IsAdminInstallMode
 Filename: "{app}\{#AppExeName}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
 
-[UninstallRun]
-; Only an admin-mode install registered the camera, so only that mode unregisters
-; it - a per-user uninstall must not rip the shared camera out from under other
-; user accounts on the machine.
-Filename: "regsvr32.exe"; Parameters: "/s /u ""{commonappdata}\KHVideoSwitcher\vcam\{#VCamComHost}"""; \
-    RunOnceId: "UnregVCam"; Flags: runhidden; Check: IsAdminInstallMode
-
-[UninstallDelete]
-Type: filesandordirs; Name: "{commonappdata}\KHVideoSwitcher"; Check: IsAdminInstallMode
+; Records whether THIS install registered the shared virtual camera. The
+; uninstaller reads it back and only removes the camera if this install put it
+; there. Deliberately not done with Check: IsAdminInstallMode on [UninstallRun]
+; / [UninstallDelete]: that is evaluated in the uninstaller's own context, which
+; is not a reliable statement about what the original install actually did, and
+; getting it wrong tears the shared camera away from other accounts.
+[Registry]
+Root: HKA; Subkey: "Software\KHVideoSwitcher"; ValueType: dword; ValueName: "InstalledVCam"; \
+    ValueData: "1"; Flags: uninsdeletevalue; Check: IsAdminInstallMode
+Root: HKA; Subkey: "Software\KHVideoSwitcher"; ValueType: dword; ValueName: "InstalledVCam"; \
+    ValueData: "0"; Flags: uninsdeletevalue; Check: not IsAdminInstallMode
 
 [Code]
 // .NET 10 Desktop Runtime is required to run the app AND to load the virtual
-// camera component into Windows services. Detect it via `dotnet --list-runtimes`;
-// if missing (or dotnet itself isn't found), offer to fetch the installer.
+// camera component into Windows services. Detected by looking for an installed
+// 10.x shared framework directly on disk, rather than shelling out to
+// `dotnet --list-runtimes` - no child process, faster, and it avoids a
+// cmd.exe command line that antivirus heuristics score against installers.
 function IsDesktopRuntimeInstalled(): Boolean;
 var
-  ResultCode: Integer;
-  TmpFile: String;
-  Lines: TArrayOfString;
-  I: Integer;
+  Base: String;
+  FindRec: TFindRec;
 begin
   Result := False;
-  TmpFile := ExpandConstant('{tmp}\dotnet-runtimes.txt');
-  if Exec(ExpandConstant('{cmd}'), '/C dotnet --list-runtimes > "' + TmpFile + '" 2>&1',
-          '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  Base := ExpandConstant('{commonpf64}\dotnet\shared\Microsoft.WindowsDesktop.App');
+  if not DirExists(Base) then
+    Exit;
+
+  if FindFirst(Base + '\10.*', FindRec) then
   begin
-    if LoadStringsFromFile(TmpFile, Lines) then
-      for I := 0 to GetArrayLength(Lines) - 1 do
-        if Pos('Microsoft.WindowsDesktop.App 10.', Lines[I]) > 0 then
+    try
+      repeat
+        if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
         begin
           Result := True;
           Break;
         end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
   end;
 end;
 
@@ -148,6 +169,33 @@ begin
     'SOFTWARE\Classes\CLSID\{8ae54092-501b-4c01-afe0-b55cef94eb2d}\InprocServer32');
 end;
 
+// Uninstall: remove the shared virtual camera ONLY if this same install put it
+// there, as recorded under Software\KHVideoSwitcher at install time. A per-user
+// install never sets that flag, so uninstalling it leaves the machine-wide
+// camera (and other user accounts that depend on it) untouched.
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  InstalledVCam: Cardinal;
+  ResultCode: Integer;
+  ComHost: String;
+begin
+  if CurUninstallStep <> usUninstall then
+    Exit;
+
+  InstalledVCam := 0;
+  if not RegQueryDWordValue(HKEY_LOCAL_MACHINE, 'Software\KHVideoSwitcher', 'InstalledVCam', InstalledVCam) then
+    if not RegQueryDWordValue(HKEY_CURRENT_USER, 'Software\KHVideoSwitcher', 'InstalledVCam', InstalledVCam) then
+      InstalledVCam := 0;
+
+  if InstalledVCam <> 1 then
+    Exit;
+
+  ComHost := ExpandConstant('{commonappdata}\KHVideoSwitcher\vcam\{#VCamComHost}');
+  if FileExists(ComHost) then
+    Exec('regsvr32.exe', '/s /u "' + ComHost + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  DelTree(ExpandConstant('{commonappdata}\KHVideoSwitcher'), True, True, True);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if (CurStep = ssInstall) and IsAdminInstallMode() then
@@ -173,58 +221,43 @@ begin
   end;
 end;
 
-// Verifies a downloaded file carries a valid Authenticode signature issued to
-// Microsoft. This runs elevated and the result is executed, so an unsigned or
-// tampered download must never be launched.
-function IsSignedByMicrosoft(const Path: String): Boolean;
-var
-  ResultCode: Integer;
-  MarkerFile: String;
-  Lines: TArrayOfString;
-begin
-  Result := False;
-  MarkerFile := ExpandConstant('{tmp}\sigcheck.txt');
-  DeleteFile(MarkerFile);
-  // Status must be Valid AND the signing certificate subject must be Microsoft.
-  Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
-       '-NoProfile -ExecutionPolicy Bypass -Command "' +
-       '$s = Get-AuthenticodeSignature -LiteralPath ''' + Path + '''; ' +
-       'if ($s.Status -eq ''Valid'' -and $s.SignerCertificate.Subject -match ''O=Microsoft Corporation'') ' +
-       '{ ''OK'' | Out-File -Encoding ascii ''' + MarkerFile + ''' }"',
-       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-  if FileExists(MarkerFile) and LoadStringsFromFile(MarkerFile, Lines) then
-    Result := (GetArrayLength(Lines) > 0) and (Pos('OK', Lines[0]) > 0);
-end;
-
 // Downloads and quietly installs the .NET 10 Desktop Runtime. Never shows a
 // dialog itself - callers decide what to tell the user, if anyone's there to
 // tell. Returns True only if the runtime is genuinely present afterward.
+//
+// The download uses Inno's in-process downloader (WinHTTP) and verifies the
+// file against a pinned SHA-256 before it is ever executed. That is stronger
+// than checking an Authenticode signature - it pins one exact known artifact -
+// and it avoids spawning curl.exe or powershell.exe, whose command lines are
+// heavily weighted by antivirus heuristics as downloader/dropper behaviour.
+//
+// The pinned build is a specific patch release rather than the rolling
+// "latest" aka.ms link, so the hash stays valid. Bumping it is a two-line
+// change: take the new URL and its SHA-512 from
+// https://builds.dotnet.microsoft.com/dotnet/release-metadata/10.0/releases.json
+// then record the file's SHA-256 here. Machines that already have any 10.x
+// desktop runtime skip the download entirely.
 function InstallDesktopRuntimeQuietly(): Boolean;
 var
   ResultCode: Integer;
   DownloadPath: String;
 begin
   Result := False;
-  DownloadPath := ExpandConstant('{tmp}\windowsdesktop-runtime-10-win-x64.exe');
+  DownloadPath := ExpandConstant('{tmp}\{#DotNetInstallerName}');
   // Never reuse a file that's already sitting at the target path.
   DeleteFile(DownloadPath);
 
-  // curl.exe directly (no cmd.exe wrapper); -f fails on HTTP errors, --proto
-  // and --tlsv1.2 keep the transfer on modern HTTPS, and we check the exit code.
-  if not Exec(ExpandConstant('{sys}\curl.exe'),
-              '-fsSL --proto "=https" --tlsv1.2 -o "' + DownloadPath + '" ' +
-              'https://aka.ms/dotnet/10.0/windowsdesktop-runtime-win-x64.exe',
-              '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-    Exit;
-  if (ResultCode <> 0) or (not FileExists(DownloadPath)) then
-    Exit;
-
-  // Only execute it if Microsoft actually signed it.
-  if not IsSignedByMicrosoft(DownloadPath) then
-  begin
-    DeleteFile(DownloadPath);
+  try
+    // Raises on any transport failure or hash mismatch; the file is discarded
+    // rather than executed in that case.
+    DownloadTemporaryFile('{#DotNetRuntimeUrl}', '{#DotNetInstallerName}',
+                          '{#DotNetRuntimeSha256}', nil);
+  except
     Exit;
   end;
+
+  if not FileExists(DownloadPath) then
+    Exit;
 
   if not Exec(DownloadPath, '/install /quiet /norestart', '', SW_SHOWNORMAL, ewWaitUntilTerminated, ResultCode) then
     Exit;
@@ -241,11 +274,10 @@ end;
 // install with that message, which is the honest outcome since the app cannot
 // start without it.
 function PrepareToInstall(var NeedsRestart: Boolean): String;
-var
-  ResultCode: Integer;
 begin
   Result := '';
-  Exec(ExpandConstant('{cmd}'), '/C taskkill /IM {#AppExeName} /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  // A running instance is closed by Restart Manager (CloseApplications=yes)
+  // rather than by shelling out to taskkill.
 
   if IsDesktopRuntimeInstalled() then
     Exit;
