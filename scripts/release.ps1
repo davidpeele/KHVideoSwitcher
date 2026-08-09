@@ -2,13 +2,17 @@
 #
 #   scripts\release.ps1 -Version 1.1.0
 #   scripts\release.ps1 -Version 1.1.0 -Notes "Fixed X, added Y"
+#   scripts\release.ps1 -Version 1.1.0 -NotesFile notes.md
 #   scripts\release.ps1 -Version 1.1.0 -DryRun     # build + zip only, no tag/publish
 #
-# Without -Notes, GitHub auto-generates notes from the commits since the last
-# release. Requires: gh CLI authenticated (gh auth login), clean working tree.
+# Without -Notes/-NotesFile, GitHub auto-generates notes — which is just a
+# changelog link, so prefer writing real notes for anything users must act on
+# (a security fix, a breaking change). Requires: gh CLI authenticated
+# (gh auth login), clean working tree.
 param(
     [Parameter(Mandatory = $true)][string]$Version,
     [string]$Notes,
+    [string]$NotesFile,
     [switch]$DryRun,
     [switch]$AllowDirty,
     [switch]$SkipTests
@@ -95,7 +99,12 @@ git push origin HEAD --tags
 if ($LASTEXITCODE -ne 0) { throw "git push failed." }
 
 $releaseArgs = @('release', 'create', $tag, $setupExe, $zip, $sums, '--title', "KH Video Switcher $tag")
-if ($Notes) { $releaseArgs += @('--notes', $Notes) } else { $releaseArgs += '--generate-notes' }
+if ($NotesFile) {
+    if (-not (Test-Path $NotesFile)) { throw "Notes file not found: $NotesFile" }
+    $releaseArgs += @('--notes-file', (Resolve-Path $NotesFile).Path)
+}
+elseif ($Notes) { $releaseArgs += @('--notes', $Notes) }
+else { $releaseArgs += '--generate-notes' }
 & gh @releaseArgs
 if ($LASTEXITCODE -ne 0) { throw "gh release create failed." }
 
