@@ -25,6 +25,14 @@ public sealed class PtzCompositor : IDisposable
     public double InsetMarginRight { get; set; } = 56;
     public double InsetMarginTop { get; set; } = 72;
 
+    /// <summary>
+    /// When true, OVER-THE-SHOULDER shifts the camera view left by roughly
+    /// <see cref="InsetShiftFraction"/> of the output width so the media inset
+    /// (top-right) doesn't cover the subject.
+    /// </summary>
+    public bool ShiftCameraForInset { get; set; }
+    private const double InsetShiftFraction = 0.05;
+
     private readonly object _outputLock = new();
     private readonly byte[] _output = new byte[OutBytes];
     private readonly byte[] _previewOutput = new byte[OutBytes];
@@ -172,15 +180,46 @@ public sealed class PtzCompositor : IDisposable
                 break;
 
             case SceneKind.OverShoulder:
+            {
                 // Camera behind, captured media boxed in the top-right corner.
-                DrawCameraCrop(scene.Ptz, opacity, 0, 0, OutWidth, OutHeight);
+                var (cameraPtz, destDx) = ShiftCameraForInset ? ShiftForInset(scene.Ptz) : (scene.Ptz, 0f);
+                DrawCameraCrop(cameraPtz, opacity, destDx, 0, OutWidth, OutHeight);
                 float w = (float)(OutWidth * InsetWidthFraction);
                 float h = w * 9f / 16f;
                 float x = (float)(OutWidth - w - InsetMarginRight);
                 float y = (float)InsetMarginTop;
                 DrawMedia(new D2D_RECT_F(x, y, x + w, y + h), opacity);
                 break;
+            }
         }
+    }
+
+    /// <summary>
+    /// Computes a left-shifted framing for OVER-THE-SHOULDER: pans the crop
+    /// within the source frame by as much of the desired shift as the current
+    /// zoom leaves room for (no-op at zoom 1, where the crop already spans the
+    /// full source width), and returns a destination x-offset to cover the rest
+    /// by sliding the whole rendered frame left, revealing the black background
+    /// on the right edge.
+    /// </summary>
+    private (PtzState Ptz, float DestDx) ShiftForInset(PtzState ptz)
+    {
+        if (_srcWidth <= 0)
+            return (ptz, 0f);
+
+        var (cropX0, _, cropW, _) = ptz.CropRect(_srcWidth, _srcHeight);
+        if (cropW <= 0)
+            return (ptz, 0f);
+
+        double desiredScreenShift = OutWidth * InsetShiftFraction;
+        double desiredSourceShift = desiredScreenShift * (cropW / OutWidth);
+        var shifted = ptz with { CenterX = ptz.CenterX + desiredSourceShift / _srcWidth };
+
+        var (shiftedCropX, _, _, _) = shifted.CropRect(_srcWidth, _srcHeight);
+        double achievedScreenShift = (shiftedCropX - cropX0) * (OutWidth / cropW);
+        double leftoverScreenShift = Math.Max(0, desiredScreenShift - achievedScreenShift);
+
+        return (shifted, (float)-leftoverScreenShift);
     }
 
     private unsafe void DrawCameraCrop(PtzState state, float opacity, float dx, float dy, float dw, float dh)

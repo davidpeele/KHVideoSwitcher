@@ -23,6 +23,7 @@ public partial class SettingsWindow : Window
         _loading = false;
         UpdateLabels();
         UpdateHideBorderTag();
+        UpdateOtsShiftTag();
     }
 
     private void Any_ValueChanged(object sender, RoutedEventArgs e)
@@ -65,6 +66,35 @@ public partial class SettingsWindow : Window
             HideBorderTag.BorderBrush = divider;
         }
         HideBorderStateRun.Text = _settings.HideCaptureBorder ? "ON" : "OFF";
+    }
+
+    private void OtsShiftTag_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.OtsShiftCameraForInset = !_settings.OtsShiftCameraForInset;
+        UpdateOtsShiftTag();
+        _onChanged();
+    }
+
+    private void UpdateOtsShiftTag()
+    {
+        var accent = (System.Windows.Media.Brush)Application.Current.Resources["AccentBrush"];
+        var bg = (System.Windows.Media.Brush)Application.Current.Resources["BgBrush"];
+        var text = (System.Windows.Media.Brush)Application.Current.Resources["TextBrush"];
+        var divider = (System.Windows.Media.Brush)Application.Current.Resources["DividerBrush"];
+
+        if (_settings.OtsShiftCameraForInset)
+        {
+            OtsShiftTag.Background = accent;
+            OtsShiftTag.Foreground = bg;
+            OtsShiftTag.BorderBrush = accent;
+        }
+        else
+        {
+            OtsShiftTag.Background = System.Windows.Media.Brushes.Transparent;
+            OtsShiftTag.Foreground = text;
+            OtsShiftTag.BorderBrush = divider;
+        }
+        OtsShiftStateRun.Text = _settings.OtsShiftCameraForInset ? "ON" : "OFF";
     }
 
     private void UpdateLabels()

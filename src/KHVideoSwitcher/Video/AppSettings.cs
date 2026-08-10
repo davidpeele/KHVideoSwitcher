@@ -42,6 +42,14 @@ public sealed class AppSettings
     /// <summary>Over-the-shoulder inset: gap from the right edge, output pixels.</summary>
     public double OtsInsetRightMargin { get; set; } = 56;
 
+    /// <summary>
+    /// When true, the camera framing in OVER-THE-SHOULDER shifts left to keep the
+    /// media inset from covering the subject: pans within the crop where the
+    /// current zoom leaves room, and shifts the rendered frame (revealing the
+    /// black background) for whatever the pan couldn't cover.
+    /// </summary>
+    public bool OtsShiftCameraForInset { get; set; }
+
     /// <summary>Ask Windows not to draw the capture highlight border (applies when capture starts).</summary>
     public bool HideCaptureBorder { get; set; } = true;
 

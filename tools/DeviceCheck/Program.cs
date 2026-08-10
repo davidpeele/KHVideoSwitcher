@@ -518,6 +518,15 @@ static async Task RunPtzTestAsync(string outputDir)
     await RenderAsync("scene-media.png", mediaScene, null);
     await RenderAsync("scene-ots.png", ots, null);
 
+    // Shift-for-inset: zoomed (room to pan the crop) vs. full-frame (falls
+    // back to sliding the whole frame left, revealing black on the right).
+    compositor.ShiftCameraForInset = true;
+    await RenderAsync("scene-ots-shift-zoomed.png", ots, null);
+    var otsWide = new KHVideoSwitcher.Video.Scene(KHVideoSwitcher.Video.SceneKind.OverShoulder,
+        KHVideoSwitcher.Video.PtzState.FullFrame);
+    await RenderAsync("scene-ots-shift-wide.png", otsWide, null);
+    compositor.ShiftCameraForInset = false;
+
     // A transition caught mid-fade: 60 ms duration sampled ~30 ms in (~50%).
     var tr = new KHVideoSwitcher.Video.SceneTransition(wide, ots, 60);
     await Task.Delay(30);

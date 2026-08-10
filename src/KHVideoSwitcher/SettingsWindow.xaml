@@ -91,11 +91,18 @@
             </Canvas>
         </Border>
 
-        <Button x:Name="HideBorderTag" Grid.Row="10" Style="{StaticResource StatusTagStyle}" HorizontalAlignment="Left"
-                Click="HideBorderTag_Click"
-                ToolTip="Asks Windows not to draw the yellow border around the captured window/display. Applies the next time Capture is started.">
-            <TextBlock><Run Text="HIDE CAPTURE BORDER · "/><Run x:Name="HideBorderStateRun" Text="ON"/></TextBlock>
-        </Button>
+        <WrapPanel Grid.Row="10">
+            <Button x:Name="HideBorderTag" Style="{StaticResource StatusTagStyle}" Margin="0,0,10,0"
+                    Click="HideBorderTag_Click"
+                    ToolTip="Asks Windows not to draw the yellow border around the captured window/display. Applies the next time Capture is started.">
+                <TextBlock><Run Text="HIDE CAPTURE BORDER · "/><Run x:Name="HideBorderStateRun" Text="ON"/></TextBlock>
+            </Button>
+            <Button x:Name="OtsShiftTag" Style="{StaticResource StatusTagStyle}"
+                    Click="OtsShiftTag_Click"
+                    ToolTip="When OVER-THE-SHOULDER is on, shifts the camera view left so the media inset doesn't cover the subject.">
+                <TextBlock><Run Text="SHIFT CAMERA FOR OTS · "/><Run x:Name="OtsShiftStateRun" Text="OFF"/></TextBlock>
+            </Button>
+        </WrapPanel>
 
         <Button Grid.Row="12" Content="Close" Style="{StaticResource TransportOutlineButtonStyle}" Height="38" Width="100"
                 HorizontalAlignment="Right" Click="Close_Click"/>
