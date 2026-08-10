@@ -24,7 +24,8 @@ New-Item -ItemType Directory -Force "$OutDir\app" | Out-Null
 New-Item -ItemType Directory -Force "$OutDir\vcam" | Out-Null
 
 Write-Host "Publishing app..."
-$versionArgs = if ($Version) { @("-p:Version=$Version") } else { @() }
+[string[]]$versionArgs = @()
+if ($Version) { $versionArgs += "-p:Version=$Version" }
 dotnet publish "$repo\src\KHVideoSwitcher\KHVideoSwitcher.csproj" -c Release -r win-x64 --no-self-contained -o "$OutDir\app" @versionArgs
 if ($LASTEXITCODE -ne 0) { throw "app publish failed" }
 
