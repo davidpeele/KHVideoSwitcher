@@ -21,21 +21,27 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Toolbar: groups wrap as units when the window is narrow -->
-        <WrapPanel x:Name="ToolbarPanel" Margin="0,0,0,10">
-            <StackPanel Orientation="Horizontal" Margin="0,0,10,6">
-                <ComboBox x:Name="CameraCombo" Style="{StaticResource ToolbarComboStyle}" Width="220" VerticalAlignment="Center"/>
-                <Button x:Name="StartStopButton" Content="Start" Style="{StaticResource ToolbarButtonStyle}" Width="80" Margin="8,0,0,0"
-                        Click="StartStopButton_Click" IsEnabled="False"/>
-            </StackPanel>
-            <Border Width="1" Height="24" Background="{StaticResource DividerBrush}" Margin="0,0,10,6" VerticalAlignment="Center"/>
-            <StackPanel Orientation="Horizontal" Margin="0,0,10,6">
-                <ComboBox x:Name="MediaCombo" Style="{StaticResource ToolbarComboStyle}" Width="220" VerticalAlignment="Center"
-                          DropDownOpened="MediaCombo_DropDownOpened"/>
-                <Button x:Name="MediaCaptureButton" Content="Capture" Style="{StaticResource ToolbarButtonStyle}" Width="90" Margin="8,0,0,0"
-                        Click="MediaCaptureButton_Click"/>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+        <!-- Toolbar: capture-related groups on the left, app-level actions pushed to the right -->
+        <Grid x:Name="ToolbarPanel" Margin="0,0,0,10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <WrapPanel Grid.Column="0">
+                <StackPanel Orientation="Horizontal" Margin="0,0,10,6">
+                    <ComboBox x:Name="CameraCombo" Style="{StaticResource ToolbarComboStyle}" Width="220" VerticalAlignment="Center"/>
+                    <Button x:Name="StartStopButton" Content="Start" Style="{StaticResource ToolbarButtonStyle}" Width="80" Margin="8,0,0,0"
+                            Click="StartStopButton_Click" IsEnabled="False"/>
+                </StackPanel>
+                <Border Width="1" Height="24" Background="{StaticResource DividerBrush}" Margin="0,0,10,6" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <ComboBox x:Name="MediaCombo" Style="{StaticResource ToolbarComboStyle}" Width="220" VerticalAlignment="Center"
+                              DropDownOpened="MediaCombo_DropDownOpened"/>
+                    <Button x:Name="MediaCaptureButton" Content="Capture" Style="{StaticResource ToolbarButtonStyle}" Width="90" Margin="8,0,0,0"
+                            Click="MediaCaptureButton_Click"/>
+                </StackPanel>
+            </WrapPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="14,0,0,6" VerticalAlignment="Center">
                 <Button x:Name="VCamButton" Content="Virtual Camera" Style="{StaticResource ToolbarButtonStyle}" Width="130"
                         Click="VCamButton_Click"/>
                 <Button x:Name="SettingsButton" Content="Settings" Style="{StaticResource ToolbarButtonStyle}" Width="90" Margin="8,0,0,0"
@@ -44,7 +50,7 @@
                         Click="CompactButton_Click"
                         ToolTip="Hide the PREVIEW pane for a smaller meeting layout (F11)"/>
             </StackPanel>
-        </WrapPanel>
+        </Grid>
 
         <!-- Status rail: persistent, always-visible ON/OFF state for every toggle in
              the app. Solid accent fill = engaged, outline = idle, dashed accent-700
@@ -108,16 +114,20 @@
                                    HorizontalAlignment="Left" VerticalAlignment="Top"/>
                     </Grid>
                 </Border>
-                <StackPanel Grid.Row="1" x:Name="ZoomBar" Orientation="Horizontal" HorizontalAlignment="Center"
-                            Margin="0,10,0,0" ToolTip="Scroll wheel over PREVIEW or this slider to zoom">
-                    <TextBlock Text="ZOOM" Foreground="{StaticResource MutedTextBrush}" FontFamily="{StaticResource HeadingMediumFont}"
-                               FontSize="11" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <Slider x:Name="ZoomSlider" Style="{StaticResource AccentSliderStyle}" Width="200"
+                <Grid Grid.Row="1" x:Name="ZoomBar" Margin="0,10,0,0" ToolTip="Scroll wheel over PREVIEW or this slider to zoom">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="ZOOM" Foreground="{StaticResource MutedTextBrush}" FontFamily="{StaticResource HeadingMediumFont}"
+                               FontSize="11" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <Slider Grid.Column="1" x:Name="ZoomSlider" Style="{StaticResource AccentSliderStyle}"
                             Minimum="1" Maximum="8" Value="1" SmallChange="0.05" LargeChange="0.5"
                             ValueChanged="ZoomSlider_ValueChanged" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="ZoomReadout" Text="1.0x" Foreground="{StaticResource TextBrush}"
-                               FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" Margin="8,0,0,0"/>
-                </StackPanel>
+                    <TextBlock Grid.Column="2" x:Name="ZoomReadout" Text="1.0x" Foreground="{StaticResource TextBrush}"
+                               FontFamily="Consolas" FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                </Grid>
             </Grid>
 
             <Grid Grid.Column="2">
@@ -133,43 +143,41 @@
             </Grid>
         </Grid>
 
-        <!-- Scene switcher + transport row -->
-        <WrapPanel x:Name="TransportPanel" Grid.Row="3" Margin="0,14,0,0">
-            <Border x:Name="SceneTilesBorder" BorderBrush="{StaticResource DividerBrush}" BorderThickness="1"
-                    Margin="0,0,14,10">
-                <StackPanel Orientation="Horizontal">
-                    <Button x:Name="SceneCamButton" Style="{StaticResource SceneTileStyle}" Width="150" Tag="Camera" Click="SceneButton_Click">
-                        <TextBlock FontFamily="{StaticResource HeadingFont}" FontSize="15">
-                            <Run x:Name="SceneCamDot" Text="●"/><Run Text=" CAM "/><Run x:Name="SceneCamHint" Text="F1" FontSize="11" FontWeight="Normal" Foreground="{StaticResource MutedTextBrush}"/>
-                        </TextBlock>
-                    </Button>
-                    <Border Width="1" Background="{StaticResource DividerBrush}" Margin="0" />
-                    <Button x:Name="SceneMediaButton" Style="{StaticResource SceneTileStyle}" Width="150" Tag="Media" Click="SceneButton_Click">
-                        <TextBlock FontFamily="{StaticResource HeadingFont}" FontSize="15">
-                            <Run x:Name="SceneMediaDot" Text="○"/><Run Text=" MEDIA "/><Run x:Name="SceneMediaHint" Text="F2" FontSize="11" FontWeight="Normal" Foreground="{StaticResource MutedTextBrush}"/>
-                        </TextBlock>
-                    </Button>
-                    <Border Width="1" Background="{StaticResource DividerBrush}" Margin="0" />
-                    <Button x:Name="SceneOtsButton" Style="{StaticResource SceneTileStyle}" Width="150" Tag="OverShoulder" Click="SceneButton_Click">
-                        <TextBlock FontFamily="{StaticResource HeadingFont}" FontSize="15">
-                            <Run x:Name="SceneOtsDot" Text="○"/><Run Text=" OTS "/><Run x:Name="SceneOtsHint" Text="F3" FontSize="11" FontWeight="Normal" Foreground="{StaticResource MutedTextBrush}"/>
-                        </TextBlock>
-                    </Button>
-                </StackPanel>
-            </Border>
-            <StackPanel Orientation="Horizontal" Margin="0,0,14,10">
-                <Button x:Name="TakeButton" Style="{StaticResource TakeButtonStyle}" Width="130" Click="TakeButton_Click"
+        <!-- Scene switcher + transport row: wide CAM/MEDIA/OTS tiles fill the available
+             space; WIDE/TAKE/CUT are equal-width and pinned to the right. -->
+        <Grid x:Name="TransportPanel" Grid.Row="3" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <UniformGrid Grid.Column="0" Rows="1" Columns="3" Margin="0,0,14,10">
+                <Button x:Name="SceneCamButton" Style="{StaticResource SceneTileStyle}" Tag="Camera" Click="SceneButton_Click" Margin="0,0,6,0">
+                    <TextBlock FontFamily="{StaticResource HeadingFont}" FontSize="15">
+                        <Run x:Name="SceneCamDot" Text="●"/><Run Text=" CAM "/><Run x:Name="SceneCamHint" Text="F1" FontSize="11" FontWeight="Normal" Foreground="{StaticResource MutedTextBrush}"/>
+                    </TextBlock>
+                </Button>
+                <Button x:Name="SceneMediaButton" Style="{StaticResource SceneTileStyle}" Tag="Media" Click="SceneButton_Click" Margin="0,0,6,0">
+                    <TextBlock FontFamily="{StaticResource HeadingFont}" FontSize="15">
+                        <Run x:Name="SceneMediaDot" Text="○"/><Run Text=" MEDIA "/><Run x:Name="SceneMediaHint" Text="F2" FontSize="11" FontWeight="Normal" Foreground="{StaticResource MutedTextBrush}"/>
+                    </TextBlock>
+                </Button>
+                <Button x:Name="SceneOtsButton" Style="{StaticResource SceneTileStyle}" Tag="OverShoulder" Click="SceneButton_Click">
+                    <TextBlock FontFamily="{StaticResource HeadingFont}" FontSize="15">
+                        <Run x:Name="SceneOtsDot" Text="○"/><Run Text=" OTS "/><Run x:Name="SceneOtsHint" Text="F3" FontSize="11" FontWeight="Normal" Foreground="{StaticResource MutedTextBrush}"/>
+                    </TextBlock>
+                </Button>
+            </UniformGrid>
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,10">
+                <Button x:Name="WideButton" Content="Wide" Style="{StaticResource TransportOutlineButtonStyle}" Width="100"
+                        Click="WideButton_Click" ToolTip="Set PREVIEW to the full wide shot (0)"/>
+                <Button x:Name="TakeButton" Style="{StaticResource TakeButtonStyle}" Width="100" Margin="8,0,0,0" Click="TakeButton_Click"
                         ToolTip="Crossfade PROGRAM to the PREVIEW scene (Enter)">
                     <TextBlock Text="TAKE"/>
                 </Button>
-                <Button x:Name="CutButton" Content="CUT" Style="{StaticResource TransportOutlineButtonStyle}" Width="80" Margin="8,0,0,0"
+                <Button x:Name="CutButton" Content="CUT" Style="{StaticResource TransportOutlineButtonStyle}" Width="100" Margin="8,0,0,0"
                         Click="CutButton_Click" ToolTip="Instantly switch PROGRAM to the PREVIEW scene (Space)"/>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                <Button x:Name="WideButton" Content="Wide" Style="{StaticResource TransportOutlineButtonStyle}" Width="80"
-                        Click="WideButton_Click" ToolTip="Set PREVIEW to the full wide shot (0)"/>
-            </StackPanel>
-        </WrapPanel>
+        </Grid>
 
         <!-- Presets row -->
         <StackPanel x:Name="PresetsPanel" Grid.Row="4" Margin="0,0,0,10">
