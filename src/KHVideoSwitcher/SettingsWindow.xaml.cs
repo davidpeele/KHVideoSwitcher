@@ -20,6 +20,7 @@ public partial class SettingsWindow : Window
         InsetSizeSlider.Value = _settings.OtsInsetWidthFraction * 100;
         InsetTopSlider.Value = _settings.OtsInsetTopMargin;
         InsetRightSlider.Value = _settings.OtsInsetRightMargin;
+        ShiftAmountSlider.Value = _settings.OtsShiftFraction * 100;
         _loading = false;
         UpdateLabels();
         UpdateHideBorderTag();
@@ -35,6 +36,7 @@ public partial class SettingsWindow : Window
         _settings.OtsInsetWidthFraction = InsetSizeSlider.Value / 100.0;
         _settings.OtsInsetTopMargin = InsetTopSlider.Value;
         _settings.OtsInsetRightMargin = InsetRightSlider.Value;
+        _settings.OtsShiftFraction = ShiftAmountSlider.Value / 100.0;
         UpdateLabels();
         _onChanged();
     }
@@ -103,6 +105,7 @@ public partial class SettingsWindow : Window
         InsetSizeLabel.Text = $"{(int)InsetSizeSlider.Value}%";
         InsetTopLabel.Text = $"{(int)InsetTopSlider.Value} px";
         InsetRightLabel.Text = $"{(int)InsetRightSlider.Value} px";
+        ShiftAmountLabel.Text = $"{(int)ShiftAmountSlider.Value}%";
         UpdateInsetPreview();
     }
 

@@ -515,6 +515,7 @@ public partial class MainWindow : Window
         _compositor.InsetMarginTop = _settings.OtsInsetTopMargin;
         _compositor.InsetMarginRight = _settings.OtsInsetRightMargin;
         _compositor.ShiftCameraForInset = _settings.OtsShiftCameraForInset;
+        _compositor.InsetShiftFraction = _settings.OtsShiftFraction;
         _display.HideBorder = _settings.HideCaptureBorder;
         _settings.Save();
     }

@@ -31,7 +31,9 @@ public sealed class PtzCompositor : IDisposable
     /// (top-right) doesn't cover the subject.
     /// </summary>
     public bool ShiftCameraForInset { get; set; }
-    private const double InsetShiftFraction = 0.05;
+
+    /// <summary>How far to shift, as a fraction of the output width. Settable at runtime (Settings window).</summary>
+    public double InsetShiftFraction { get; set; } = 0.05;
 
     private readonly object _outputLock = new();
     private readonly byte[] _output = new byte[OutBytes];

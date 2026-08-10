@@ -50,6 +50,9 @@ public sealed class AppSettings
     /// </summary>
     public bool OtsShiftCameraForInset { get; set; }
 
+    /// <summary>How far OVER-THE-SHOULDER shifts the camera left, as a fraction of the frame width.</summary>
+    public double OtsShiftFraction { get; set; } = 0.05;
+
     /// <summary>Ask Windows not to draw the capture highlight border (applies when capture starts).</summary>
     public bool HideCaptureBorder { get; set; } = true;
 
