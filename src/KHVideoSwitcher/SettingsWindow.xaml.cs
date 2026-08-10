@@ -9,6 +9,8 @@ public partial class SettingsWindow : Window
     private readonly AppSettings _settings;
     private readonly Action _onChanged;
     private bool _loading = true;
+    private UpdateChecker.UpdateInfo? _pendingUpdate;
+    private bool _updateDownloading;
 
     public SettingsWindow(AppSettings settings, Action onChanged)
     {
@@ -25,6 +27,7 @@ public partial class SettingsWindow : Window
         UpdateLabels();
         UpdateHideBorderTag();
         UpdateOtsShiftTag();
+        VersionText.Text = $"v{UpdateChecker.CurrentVersion}";
     }
 
     private void Any_ValueChanged(object sender, RoutedEventArgs e)
@@ -128,4 +131,81 @@ public partial class SettingsWindow : Window
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+    // ---------- update check ----------
+
+    private async void CheckUpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        CheckUpdateButton.IsEnabled = false;
+        UpdateStatusText.Text = "Checking...";
+        try
+        {
+            var update = await UpdateChecker.CheckAsync();
+            _settings.LastUpdateCheckUtc = DateTime.UtcNow;
+            _settings.Save();
+            _pendingUpdate = update;
+            UpdateStatusText.Text = update is null
+                ? "You're up to date."
+                : $"{update.TagName} is available — click UPDATE below to install.";
+            UpdateSettingsUpdateTag();
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = $"Check failed: {ex.Message}";
+        }
+        finally
+        {
+            CheckUpdateButton.IsEnabled = true;
+        }
+    }
+
+    private void UpdateSettingsUpdateTag()
+    {
+        if (_pendingUpdate is null)
+        {
+            SettingsUpdateTag.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        var accent700 = (System.Windows.Media.Brush)Application.Current.Resources["Accent700Brush"];
+        SettingsUpdateTag.Visibility = Visibility.Visible;
+        SettingsUpdateTag.Background = System.Windows.Media.Brushes.Transparent;
+        SettingsUpdateTag.Foreground = accent700;
+        SettingsUpdateTag.BorderBrush = accent700;
+        SettingsUpdateTag.BorderThickness = new Thickness(1.5);
+        SettingsUpdateTag.Template = (ControlTemplate)Application.Current.Resources["StatusTagDashedTemplate"];
+        SettingsUpdateStateRun.Text = _pendingUpdate.TagName;
+    }
+
+    private async void SettingsUpdateTag_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingUpdate is null || _updateDownloading)
+            return;
+
+        var info = _pendingUpdate;
+        var result = MessageBox.Show(this,
+            $"KH Video Switcher {info.TagName} is available (you're on v{UpdateChecker.CurrentVersion}).\n\n" +
+            "Download and install it now? The app will close and the installer will open — " +
+            "Windows may ask for administrator approval.",
+            "Update available", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        _updateDownloading = true;
+        SettingsUpdateTag.IsEnabled = false;
+        try
+        {
+            var progress = new Progress<double>(p => UpdateStatusText.Text = $"Downloading {info.TagName}... {p:P0}");
+            UpdateStatusText.Text = $"Downloading {info.TagName}...";
+            var installerPath = await UpdateChecker.DownloadInstallerAsync(info, progress, CancellationToken.None);
+            UpdateStatusText.Text = "Verified. Launching installer...";
+            UpdateChecker.LaunchInstallerAndExit(installerPath);
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = $"Update download failed: {ex.Message}";
+            _updateDownloading = false;
+            SettingsUpdateTag.IsEnabled = true;
+        }
+    }
 }

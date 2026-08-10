@@ -56,6 +56,9 @@ public sealed class AppSettings
     /// <summary>Ask Windows not to draw the capture highlight border (applies when capture starts).</summary>
     public bool HideCaptureBorder { get; set; } = true;
 
+    /// <summary>UTC time of the last background update check; throttles the silent startup check to once/day.</summary>
+    public DateTime? LastUpdateCheckUtc { get; set; }
+
     private static string Dir =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "KHVideoSwitcher");
     private static string FilePath => Path.Combine(Dir, "settings.json");

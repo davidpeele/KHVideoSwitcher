@@ -4,7 +4,12 @@
 #   dist\install.ps1
 # Copy the dist folder to the target machine and run install.ps1 there.
 param(
-    [string]$OutDir = (Join-Path $PSScriptRoot "..\dist")
+    [string]$OutDir = (Join-Path $PSScriptRoot "..\dist"),
+    # Stamped into the app's AssemblyVersion/FileVersion/InformationalVersion so it
+    # can read its own version at runtime (in-app update check). Left at the MSBuild
+    # default (1.0.0.0) for ad-hoc local builds - only release.ps1/build-installer.ps1
+    # pass a real one, sourced from the release tag.
+    [string]$Version
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,7 +24,8 @@ New-Item -ItemType Directory -Force "$OutDir\app" | Out-Null
 New-Item -ItemType Directory -Force "$OutDir\vcam" | Out-Null
 
 Write-Host "Publishing app..."
-dotnet publish "$repo\src\KHVideoSwitcher\KHVideoSwitcher.csproj" -c Release -r win-x64 --no-self-contained -o "$OutDir\app"
+$versionArgs = if ($Version) { @("-p:Version=$Version") } else { @() }
+dotnet publish "$repo\src\KHVideoSwitcher\KHVideoSwitcher.csproj" -c Release -r win-x64 --no-self-contained -o "$OutDir\app" @versionArgs
 if ($LASTEXITCODE -ne 0) { throw "app publish failed" }
 
 Write-Host "Building virtual camera..."

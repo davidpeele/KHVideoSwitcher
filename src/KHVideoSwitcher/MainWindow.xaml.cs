@@ -74,6 +74,8 @@ public partial class MainWindow : Window
     private readonly PtzCompositor _compositor = new();
     private readonly AppSettings _settings = AppSettings.Load();
     private readonly DispatcherTimer _statusTimer;
+    private UpdateChecker.UpdateInfo? _pendingUpdate;
+    private bool _updateDownloading;
 
     private WriteableBitmap? _previewBitmap;       // raw wide shot (Camera preview)
     private WriteableBitmap? _scenePreviewBitmap;  // rendered scene preview (Media/OTS)
@@ -142,10 +144,91 @@ public partial class MainWindow : Window
             _detector.ImportStock(_settings.StockFingerprint);
             ApplySettings();
             LayoutPanes();
+            _ = CheckForUpdatesAsync(silent: true);
         }
         catch (Exception ex)
         {
             StatusText.Text = $"Camera enumeration failed: {ex.Message}";
+        }
+    }
+
+    // ---------- update check ----------
+
+    /// <summary>
+    /// Silent (startup) checks are throttled to once/day and never bother the
+    /// operator on failure (e.g. offline at the Hall) - only a found update
+    /// surfaces, via the UPDATE status-rail tag. A manual check always reports.
+    /// </summary>
+    private async Task CheckForUpdatesAsync(bool silent)
+    {
+        if (silent)
+        {
+            var last = _settings.LastUpdateCheckUtc;
+            if (last is not null && DateTime.UtcNow - last.Value < TimeSpan.FromDays(1))
+                return;
+        }
+
+        try
+        {
+            var update = await UpdateChecker.CheckAsync();
+            _settings.LastUpdateCheckUtc = DateTime.UtcNow;
+            _settings.Save();
+            _pendingUpdate = update;
+            UpdateUpdateTag();
+            if (!silent)
+            {
+                StatusText.Text = update is null
+                    ? $"You're up to date (v{UpdateChecker.CurrentVersion})."
+                    : $"KH Video Switcher {update.TagName} is available — click UPDATE to install.";
+            }
+        }
+        catch (Exception ex)
+        {
+            if (!silent)
+                StatusText.Text = $"Update check failed: {ex.Message}";
+        }
+    }
+
+    private void UpdateUpdateTag()
+    {
+        if (_pendingUpdate is null)
+        {
+            UpdateTag.Visibility = Visibility.Collapsed;
+            return;
+        }
+        UpdateTag.Visibility = Visibility.Visible;
+        ApplyAttentionStyle(UpdateTag, UpdateStateRun, resolved: false, "AVAILABLE", _pendingUpdate.TagName);
+    }
+
+    private async void UpdateTag_Click(object sender, RoutedEventArgs e)
+    {
+        if (_pendingUpdate is null || _updateDownloading)
+            return;
+
+        var info = _pendingUpdate;
+        var result = MessageBox.Show(this,
+            $"KH Video Switcher {info.TagName} is available (you're on v{UpdateChecker.CurrentVersion}).\n\n" +
+            "Download and install it now? The app will close and the installer will open — " +
+            "Windows may ask for administrator approval.",
+            "Update available", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        _updateDownloading = true;
+        UpdateTag.IsEnabled = false;
+        try
+        {
+            var progress = new Progress<double>(p => StatusText.Text = $"Downloading {info.TagName}... {p:P0}");
+            StatusText.Text = $"Downloading {info.TagName}...";
+            var installerPath = await UpdateChecker.DownloadInstallerAsync(info, progress, CancellationToken.None);
+            StatusText.Text = "Verified. Launching installer...";
+            UpdateChecker.LaunchInstallerAndExit(installerPath);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Update download failed: {ex.Message}";
+            _updateDownloading = false;
+            UpdateTag.IsEnabled = true;
         }
     }
 

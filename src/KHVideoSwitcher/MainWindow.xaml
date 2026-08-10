@@ -74,9 +74,13 @@
                             ToolTip="ON: drag right and the picture comes right (grab-the-picture feel). OFF: drag moves the crop box / camera instead.">
                         <TextBlock><Run Text="DRAG MODE · "/><Run x:Name="DragModeStateRun" Text="ON"/></TextBlock>
                     </Button>
-                    <Button x:Name="StockButton" Style="{StaticResource StatusTagStyle}" Click="StockButton_Click"
+                    <Button x:Name="StockButton" Style="{StaticResource StatusTagStyle}" Margin="0,0,6,0" Click="StockButton_Click"
                             ToolTip="Click while JW Library shows the yeartext / no-media screen. That screen is then recognized as NO MEDIA by automatic switching.">
                         <TextBlock><Run Text="STOCK · "/><Run x:Name="StockStateRun" Text="NOT SET"/></TextBlock>
+                    </Button>
+                    <Button x:Name="UpdateTag" Style="{StaticResource StatusTagStyle}" Click="UpdateTag_Click" Visibility="Collapsed"
+                            ToolTip="A newer version of KH Video Switcher is available. Click to download, verify, and install it.">
+                        <TextBlock><Run Text="UPDATE · "/><Run x:Name="UpdateStateRun" Text="AVAILABLE"/></TextBlock>
                     </Button>
                 </WrapPanel>
             </Border>

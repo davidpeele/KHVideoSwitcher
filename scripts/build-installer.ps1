@@ -22,7 +22,7 @@ if (-not $iscc) {
 }
 
 Write-Host "== Building app + vcam (publish.ps1) =="
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "publish.ps1")
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "publish.ps1") -Version $Version
 if ($LASTEXITCODE -ne 0) { throw "publish.ps1 failed." }
 
 Write-Host "== Compiling installer (Inno Setup) =="

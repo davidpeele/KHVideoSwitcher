@@ -36,8 +36,20 @@
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0" BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,10">
-            <TextBlock Text="Settings" FontFamily="{StaticResource HeadingFont}" FontSize="18"
-                       Foreground="{StaticResource TextBrush}"/>
+            <DockPanel LastChildFill="False">
+                <TextBlock Text="Settings" FontFamily="{StaticResource HeadingFont}" FontSize="18"
+                           Foreground="{StaticResource TextBrush}" DockPanel.Dock="Left" VerticalAlignment="Center"/>
+                <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <TextBlock x:Name="VersionText" Text="v0.0.0" Style="{StaticResource SliderCaptionStyle}"
+                                   VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Button x:Name="CheckUpdateButton" Content="Check for Updates" Style="{StaticResource TransportOutlineButtonStyle}"
+                                Height="28" Padding="12,0" Click="CheckUpdateButton_Click"/>
+                    </StackPanel>
+                    <TextBlock x:Name="UpdateStatusText" Style="{StaticResource SliderCaptionStyle}"
+                               HorizontalAlignment="Right" Margin="0,4,0,0" Text=""/>
+                </StackPanel>
+            </DockPanel>
         </Border>
 
         <!-- Crossfade duration -->
@@ -99,10 +111,14 @@
                     ToolTip="Asks Windows not to draw the yellow border around the captured window/display. Applies the next time Capture is started.">
                 <TextBlock><Run Text="HIDE CAPTURE BORDER · "/><Run x:Name="HideBorderStateRun" Text="ON"/></TextBlock>
             </Button>
-            <Button x:Name="OtsShiftTag" Style="{StaticResource StatusTagStyle}"
+            <Button x:Name="OtsShiftTag" Style="{StaticResource StatusTagStyle}" Margin="0,0,10,0"
                     Click="OtsShiftTag_Click"
                     ToolTip="When OVER-THE-SHOULDER is on, shifts the camera view left so the media inset doesn't cover the subject.">
                 <TextBlock><Run Text="SHIFT CAMERA FOR OTS · "/><Run x:Name="OtsShiftStateRun" Text="OFF"/></TextBlock>
+            </Button>
+            <Button x:Name="SettingsUpdateTag" Style="{StaticResource StatusTagStyle}" Click="SettingsUpdateTag_Click" Visibility="Collapsed"
+                    ToolTip="A newer version of KH Video Switcher is available. Click to download, verify, and install it.">
+                <TextBlock><Run Text="UPDATE · "/><Run x:Name="SettingsUpdateStateRun" Text="AVAILABLE"/></TextBlock>
             </Button>
         </WrapPanel>
 

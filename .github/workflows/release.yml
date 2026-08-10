@@ -39,7 +39,7 @@ jobs:
         run: choco install innosetup -y --no-progress
 
       - name: Build app + virtual camera
-        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\publish.ps1
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\publish.ps1 -Version ${{ steps.version.outputs.version }}
 
       - name: Run shared-channel hardening test
         shell: pwsh
