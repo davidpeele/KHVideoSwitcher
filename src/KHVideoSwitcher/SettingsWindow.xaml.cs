@@ -27,6 +27,7 @@ public partial class SettingsWindow : Window
         UpdateLabels();
         UpdateHideBorderTag();
         UpdateOtsShiftTag();
+        UpdateFullScreenFirstTag();
         VersionText.Text = $"v{UpdateChecker.CurrentVersion}";
     }
 
@@ -100,6 +101,35 @@ public partial class SettingsWindow : Window
             OtsShiftTag.BorderBrush = divider;
         }
         OtsShiftStateRun.Text = _settings.OtsShiftCameraForInset ? "ON" : "OFF";
+    }
+
+    private void FullScreenFirstTag_Click(object sender, RoutedEventArgs e)
+    {
+        _settings.AlwaysFullScreenFirst = !_settings.AlwaysFullScreenFirst;
+        UpdateFullScreenFirstTag();
+        _onChanged();
+    }
+
+    private void UpdateFullScreenFirstTag()
+    {
+        var accent = (System.Windows.Media.Brush)Application.Current.Resources["AccentBrush"];
+        var bg = (System.Windows.Media.Brush)Application.Current.Resources["BgBrush"];
+        var text = (System.Windows.Media.Brush)Application.Current.Resources["TextBrush"];
+        var divider = (System.Windows.Media.Brush)Application.Current.Resources["DividerBrush"];
+
+        if (_settings.AlwaysFullScreenFirst)
+        {
+            FullScreenFirstTag.Background = accent;
+            FullScreenFirstTag.Foreground = bg;
+            FullScreenFirstTag.BorderBrush = accent;
+        }
+        else
+        {
+            FullScreenFirstTag.Background = System.Windows.Media.Brushes.Transparent;
+            FullScreenFirstTag.Foreground = text;
+            FullScreenFirstTag.BorderBrush = divider;
+        }
+        FullScreenFirstStateRun.Text = _settings.AlwaysFullScreenFirst ? "ON" : "OFF";
     }
 
     private void UpdateLabels()

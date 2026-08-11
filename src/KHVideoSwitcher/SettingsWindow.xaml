@@ -116,6 +116,11 @@
                     ToolTip="When OVER-THE-SHOULDER is on, shifts the camera view left so the media inset doesn't cover the subject.">
                 <TextBlock><Run Text="SHIFT CAMERA FOR OTS · "/><Run x:Name="OtsShiftStateRun" Text="OFF"/></TextBlock>
             </Button>
+            <Button x:Name="FullScreenFirstTag" Style="{StaticResource StatusTagStyle}" Margin="0,0,10,0"
+                    Click="FullScreenFirstTag_Click"
+                    ToolTip="When AUTO is on, new media (video or still) always goes full screen first instead of images going to the over-the-shoulder inset. You can still switch to OVER-THE-SHOULDER manually.">
+                <TextBlock><Run Text="ALWAYS FULL SCREEN FIRST · "/><Run x:Name="FullScreenFirstStateRun" Text="OFF"/></TextBlock>
+            </Button>
             <Button x:Name="SettingsUpdateTag" Style="{StaticResource StatusTagStyle}" Click="SettingsUpdateTag_Click" Visibility="Collapsed"
                     ToolTip="A newer version of KH Video Switcher is available. Click to download, verify, and install it.">
                 <TextBlock><Run Text="UPDATE · "/><Run x:Name="SettingsUpdateStateRun" Text="AVAILABLE"/></TextBlock>

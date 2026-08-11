@@ -56,6 +56,12 @@ public sealed class AppSettings
     /// <summary>Ask Windows not to draw the capture highlight border (applies when capture starts).</summary>
     public bool HideCaptureBorder { get; set; } = true;
 
+    /// <summary>
+    /// When true, AUTO always sends new media (video or still) to full screen first,
+    /// instead of sending stills to the over-the-shoulder inset.
+    /// </summary>
+    public bool AlwaysFullScreenFirst { get; set; }
+
     /// <summary>UTC time of the last background update check; throttles the silent startup check to once/day.</summary>
     public DateTime? LastUpdateCheckUtc { get; set; }
 

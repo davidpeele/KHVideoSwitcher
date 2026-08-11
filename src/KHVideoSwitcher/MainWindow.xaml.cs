@@ -563,7 +563,7 @@ public partial class MainWindow : Window
         var target = state switch
         {
             MediaState.Video => new Scene(SceneKind.Media, ptz),
-            MediaState.Still => new Scene(SceneKind.OverShoulder, ptz),
+            MediaState.Still => new Scene(_settings.AlwaysFullScreenFirst ? SceneKind.Media : SceneKind.OverShoulder, ptz),
             _ => new Scene(SceneKind.Camera, ptz),
         };
         TakeTo(target, _settings.FadeMs);
