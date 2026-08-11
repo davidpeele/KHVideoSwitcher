@@ -49,6 +49,9 @@
                 <Button x:Name="CompactButton" Content="Compact" Style="{StaticResource ToolbarButtonStyle}" Width="90" Margin="8,0,0,0"
                         Click="CompactButton_Click"
                         ToolTip="Hide the PREVIEW pane for a smaller meeting layout (F11)"/>
+                <Button x:Name="HelpButton" Content="Help" Style="{StaticResource ToolbarButtonStyle}" Width="80" Margin="8,0,0,0"
+                        Click="HelpButton_Click"
+                        ToolTip="Open the user guide — explains every button and walks through common meeting scenarios"/>
             </StackPanel>
         </Grid>
 

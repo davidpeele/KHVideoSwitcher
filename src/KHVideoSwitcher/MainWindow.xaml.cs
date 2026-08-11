@@ -591,6 +591,23 @@ public partial class MainWindow : Window
         new SettingsWindow(_settings, ApplySettings) { Owner = this }.Show();
     }
 
+    private HelpWindow? _helpWindow;
+
+    /// <summary>Reuses a single Help window instead of stacking new ones — it's meant to stay open alongside the app.</summary>
+    private void HelpButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_helpWindow is null)
+        {
+            _helpWindow = new HelpWindow { Owner = this };
+            _helpWindow.Closed += (_, _) => _helpWindow = null;
+            _helpWindow.Show();
+        }
+        else
+        {
+            _helpWindow.Activate();
+        }
+    }
+
     /// <summary>Pushes current settings into the live pipeline and persists them.</summary>
     private void ApplySettings()
     {
