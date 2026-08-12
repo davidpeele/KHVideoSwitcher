@@ -18,6 +18,11 @@ something meeting operators can run with a few clicks.
   With AUTO on, it switches scenes for you: video → MEDIA, still → OTS,
   nothing → CAM. The operator can always override; sing-along lyric videos are
   taken manually with one tap of MEDIA (F2) and held automatically after that.
+  An **Always Full Screen First** setting sends stills to full-screen MEDIA
+  too, for halls that don't want the smaller over-the-shoulder box.
+- **Built-in Help** — a Help button opens a plain-English user guide in its
+  own window, with jump-to-section navigation, that stays open alongside the
+  app while you run a meeting.
 
 ## Requirements
 
@@ -147,6 +152,7 @@ meeting-day startup is: open app → Start → Capture → Virtual Camera ON.
 | AUTO scene switching from JW Library | **F4** |
 | Compact layout (hide PREVIEW) | **F11** |
 | Zoom the preview framing | mouse wheel or the slider beside PREVIEW |
+| Open the in-app user guide | **Help** button (toolbar) |
 
 During sing-along songs, tap **F2** (MEDIA) when the song starts — the app
 holds it there and returns to camera automatically when the yeartext comes
