@@ -97,14 +97,28 @@ if ($NotesFile -or $Notes) {
     else {
         Set-Content -Path $committedNotes -Value $Notes
     }
+    # Windows PowerShell 5.1 wraps a native command's stderr output as a
+    # terminating error whenever the session is non-interactive (e.g. run from
+    # an automation tool) - and git writes routine, non-error info to stderr
+    # (line-ending notices on add, progress/ref updates on push). Under
+    # $ErrorActionPreference = 'Stop' that aborts the script even though git
+    # succeeded. Drop to 'Continue' around these calls and rely on the
+    # existing $LASTEXITCODE checks instead.
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     git add $committedNotes
+    if ($LASTEXITCODE -ne 0) { $ErrorActionPreference = $prevEap; throw "git add failed." }
     git commit -m "Add release notes for $tag"
+    $ErrorActionPreference = $prevEap
     if ($LASTEXITCODE -ne 0) { throw "git commit failed." }
 }
 
 Write-Host "== Tagging and pushing =="
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
 git tag $tag
 git push origin HEAD --tags
+$ErrorActionPreference = $prevEap
 if ($LASTEXITCODE -ne 0) { throw "git push failed." }
 
 Write-Host ""
