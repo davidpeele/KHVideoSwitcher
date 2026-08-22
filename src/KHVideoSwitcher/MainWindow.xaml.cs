@@ -510,6 +510,15 @@ public partial class MainWindow : Window
                 MediaCaptureButton.Content = "Capture";
                 MediaCombo.IsEnabled = true;
             }
+            else if (!_camera.IsRunning)
+            {
+                // PumpFrames() only runs on the compose thread, which the camera
+                // Start button spins up. Without it, a capture session opens but
+                // never delivers a visible frame — indistinguishable from broken
+                // to the user, so refuse up front instead of leaving them staring
+                // at a black Media preview with no clue why.
+                StatusText.Text = "Start the camera first (top-left Start button) — Capture needs it running to show anything.";
+            }
             else if (MediaCombo.SelectedItem is CaptureTarget target)
             {
                 _display.Start(target);
