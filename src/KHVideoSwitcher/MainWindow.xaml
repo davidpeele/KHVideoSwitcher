@@ -52,6 +52,9 @@
                 <Button x:Name="HelpButton" Content="Help" Style="{StaticResource ToolbarButtonStyle}" Width="80" Margin="8,0,0,0"
                         Click="HelpButton_Click"
                         ToolTip="Open the user guide — explains every button and walks through common meeting scenarios"/>
+                <Button x:Name="ReportBugButton" Content="Report Bug" Style="{StaticResource ToolbarButtonStyle}" Width="100" Margin="8,0,0,0"
+                        Click="ReportBugButton_Click"
+                        ToolTip="Send a bug report — you review everything before anything is shared, nothing is collected automatically"/>
             </StackPanel>
         </Grid>
 

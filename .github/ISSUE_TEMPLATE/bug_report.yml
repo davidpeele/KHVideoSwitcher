@@ -1,0 +1,44 @@
+name: Bug Report
+description: Something in KH Video Switcher isn't working right
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! If the app's own **Report Bug** button (top toolbar) got you here, most of the fields below are already filled in from what it copied to your clipboard — just paste (Ctrl+V) over the placeholder text.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What were you doing, what did you expect, and what happened instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Started the camera
+        2. Clicked Capture on the JW Library window
+        3. ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: App version, OS, and recent log — from the in-app Report Bug button (Help/toolbar), or paste from your clipboard if you used it.
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: privacy-check
+    attributes:
+      label: Before submitting
+      options:
+        - label: I've looked over the diagnostics text above and removed anything I'd rather not post in a public issue
+          required: false

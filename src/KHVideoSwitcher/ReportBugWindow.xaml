@@ -1,0 +1,66 @@
+<Window x:Class="KHVideoSwitcher.ReportBugWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="KH Video Switcher — Report a Bug" Height="640" Width="640" MinHeight="480" MinWidth="520"
+        Background="{StaticResource BgBrush}" FontFamily="{StaticResource BodyFont}"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize">
+    <Window.Resources>
+        <Style TargetType="TextBox" x:Key="ReportTextBoxStyle">
+            <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="AcceptsReturn" Value="True"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="22,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="14"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="10"/>
+            <RowDefinition Height="90"/>
+            <RowDefinition Height="16"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="8"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="10"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="12"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="Report a Bug" FontFamily="{StaticResource HeadingFont}" FontSize="20"
+                       Foreground="{StaticResource TextBrush}"/>
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource MutedTextBrush}" Margin="0,6,0,0"
+                       Text="Nothing here is sent automatically. Everything below stays on this screen — and in your clipboard — until you choose to open GitHub yourself. Edit or delete anything you don't want to share before you do."/>
+        </StackPanel>
+
+        <TextBlock Grid.Row="2" Text="WHAT HAPPENED / STEPS TO REPRODUCE" Style="{StaticResource SectionCaptionStyle}"/>
+        <TextBox Grid.Row="4" x:Name="DescriptionBox" Style="{StaticResource ReportTextBoxStyle}"
+                  AcceptsReturn="True" TextWrapping="Wrap"
+                  ToolTip="What were you doing, what did you expect, and what happened instead?"/>
+
+        <TextBlock Grid.Row="6" Text="DIAGNOSTICS — REVIEW BEFORE SENDING" Style="{StaticResource SectionCaptionStyle}"/>
+        <TextBox Grid.Row="8" x:Name="DiagnosticsBox" Style="{StaticResource ReportTextBoxStyle}"/>
+
+        <TextBlock Grid.Row="10" x:Name="StatusText" TextWrapping="Wrap" FontSize="12"
+                   Foreground="{StaticResource MutedTextBrush}" Text=""/>
+
+        <DockPanel Grid.Row="12" LastChildFill="False">
+            <Button DockPanel.Dock="Left" Content="Close" Style="{StaticResource TransportOutlineButtonStyle}"
+                    Height="36" Width="90" Click="Close_Click"/>
+            <Button DockPanel.Dock="Right" Content="Open GitHub Issue" Style="{StaticResource TakeButtonStyle}"
+                    Height="36" Width="160" Click="OpenIssueButton_Click"
+                    ToolTip="Copies everything to your clipboard, then opens a prefilled draft issue in your browser — you still review and click Submit there."/>
+            <Button DockPanel.Dock="Right" Content="Copy to Clipboard" Style="{StaticResource TransportOutlineButtonStyle}"
+                    Height="36" Width="150" Margin="0,0,10,0" Click="CopyButton_Click"/>
+        </DockPanel>
+    </Grid>
+</Window>

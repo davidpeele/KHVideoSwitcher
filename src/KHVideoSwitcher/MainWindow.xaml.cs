@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using KHVideoSwitcher.Capture;
+using KHVideoSwitcher.Diagnostics;
 using KHVideoSwitcher.VCam;
 using KHVideoSwitcher.Video;
 using MediaState = KHVideoSwitcher.Video.MediaState;
@@ -147,6 +148,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = $"Camera enumeration failed: {ex.Message}";
+            AppLog.Error("Camera enumeration failed", ex);
         }
     }
 
@@ -415,6 +417,7 @@ public partial class MainWindow : Window
                 StartStopButton.Content = "Start";
                 CameraCombo.IsEnabled = true;
                 StatusText.Text = "Stopped.";
+                AppLog.Info("Camera stopped.");
             }
             else if (CameraCombo.SelectedItem is CameraInfo cam)
             {
@@ -434,16 +437,19 @@ public partial class MainWindow : Window
                 StartComposeLoop();
                 _settings.LastCameraName = cam.Name;
                 _settings.Save();
+                AppLog.Info($"Camera started: {cam.Name} — {format}");
             }
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException ex)
         {
             StatusText.Text = "Camera access denied. Enable it in Settings > Privacy & security > Camera " +
                               "(including 'Let desktop apps access your camera').";
+            AppLog.Error("Camera access denied", ex);
         }
         catch (Exception ex)
         {
             StatusText.Text = $"Failed to start camera: {ex.Message}";
+            AppLog.Error("Failed to start camera", ex);
         }
         finally
         {
@@ -461,12 +467,14 @@ public partial class MainWindow : Window
             {
                 _vcamOn = false;
                 _vcam.Stop();
+                AppLog.Info("Virtual camera stopped.");
             }
             else
             {
                 await Task.Run(_vcam.Start);
                 _vcamChannel.TryOpenForWrite();
                 _vcamOn = true;
+                AppLog.Info("Virtual camera started.");
             }
             UpdateVCamRailTag();
         }
@@ -474,6 +482,7 @@ public partial class MainWindow : Window
         {
             StatusText.Text = $"Virtual camera failed: {ex.Message} " +
                               "(Is the KH Video Switcher camera component installed? Run scripts\\install-vcam.ps1.)";
+            AppLog.Error("Virtual camera toggle failed", ex);
         }
         finally
         {
@@ -509,6 +518,7 @@ public partial class MainWindow : Window
                 _display.Stop();
                 MediaCaptureButton.Content = "Capture";
                 MediaCombo.IsEnabled = true;
+                AppLog.Info("Media capture stopped.");
             }
             else if (!_camera.IsRunning)
             {
@@ -527,6 +537,7 @@ public partial class MainWindow : Window
                 StatusText.Text = $"Capturing: {target.Name}";
                 _settings.LastMediaTargetName = target.Name;
                 _settings.Save();
+                AppLog.Info($"Media capture started: {target.Name}");
             }
             else
             {
@@ -536,6 +547,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             StatusText.Text = $"Media capture failed: {ex.Message}";
+            AppLog.Error("Media capture failed to start", ex);
         }
     }
 
@@ -603,6 +615,14 @@ public partial class MainWindow : Window
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
         new SettingsWindow(_settings, ApplySettings) { Owner = this }.Show();
+    }
+
+    private void ReportBugButton_Click(object sender, RoutedEventArgs e)
+    {
+        var cameraName = (CameraCombo.SelectedItem as CameraInfo)?.Name;
+        var mediaName = (MediaCombo.SelectedItem as CaptureTarget)?.Name;
+        var diagnostics = DiagnosticsReport.Build(_settings, cameraName, mediaName, _vcam.IsRunning);
+        new ReportBugWindow(diagnostics) { Owner = this }.Show();
     }
 
     private HelpWindow? _helpWindow;
@@ -1121,14 +1141,17 @@ public partial class MainWindow : Window
         try
         {
             StatusText.Text = "Camera stopped delivering frames — restarting it…";
+            AppLog.Warn($"Camera stalled, restarting: {cam.Name}");
             await _camera.StopAsync();
             await Task.Delay(500);
             var format = await _camera.StartAsync(cam);
             StatusText.Text = $"Camera recovered: {cam.Name} — {format}";
+            AppLog.Info($"Camera recovered: {cam.Name} — {format}");
         }
         catch (Exception ex)
         {
             StatusText.Text = $"Camera restart failed ({ex.Message}) — will retry if it stays stalled.";
+            AppLog.Error("Camera restart failed", ex);
         }
         finally
         {
