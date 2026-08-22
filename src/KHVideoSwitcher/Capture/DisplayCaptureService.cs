@@ -48,6 +48,24 @@ public sealed class DisplayCaptureService : IDisposable
     public long LastFrameAgeMs => _lastFrameMs == 0 ? long.MaxValue : Environment.TickCount64 - _lastFrameMs;
     public string? TargetName { get; private set; }
 
+    /// <summary>
+    /// True when the active target is a monitor rather than a window.
+    /// </summary>
+    public bool IsMonitorTarget { get; private set; }
+
+    private IntPtr _targetHandle;
+
+    /// <summary>
+    /// True only for a window target that is currently minimized (where WGC
+    /// genuinely has nothing to show). Windows Graphics Capture only delivers
+    /// a frame when the desktop actually recomposites the captured surface,
+    /// so both window and monitor captures can legitimately go long stretches
+    /// without a new frame whenever the source content is static — that is
+    /// not staleness, it's just an unchanged picture. This is the only case
+    /// where "no recent frame" should be treated as "no feed".
+    /// </summary>
+    public bool IsTargetMinimized => !IsMonitorTarget && _targetHandle != IntPtr.Zero && IsIconic(_targetHandle);
+
     /// <summary>Human-readable reason frames stopped (window closed, pump error), or null.</summary>
     public string? LastError { get; private set; }
 
@@ -188,6 +206,8 @@ public sealed class DisplayCaptureService : IDisposable
         }
         _session.StartCapture();
         TargetName = target.Name;
+        IsMonitorTarget = target.IsMonitor;
+        _targetHandle = target.Handle;
         LastError = null;
     }
 
@@ -206,6 +226,8 @@ public sealed class DisplayCaptureService : IDisposable
         _framePool = null;
         _item = null;
         TargetName = null;
+        IsMonitorTarget = false;
+        _targetHandle = IntPtr.Zero;
         _lastFrameMs = 0;
     }
 
@@ -405,6 +427,9 @@ public sealed class DisplayCaptureService : IDisposable
 
     [DllImport("user32")]
     private static extern bool IsWindowVisible(IntPtr hWnd);
+
+    [DllImport("user32")]
+    private static extern bool IsIconic(IntPtr hWnd);
 
     [DllImport("user32")]
     private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);

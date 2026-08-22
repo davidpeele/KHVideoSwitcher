@@ -396,7 +396,7 @@ public partial class HelpWindow : Window
         Section("Troubleshooting & Tips");
         Bullets(
             "STOCK tag shows a dashed outline / \"NOT SET\": click it while JW Library shows its plain yeartext screen — needed once per computer for AUTO SCENES to work reliably.",
-            "AUTO SCENES doesn't seem to react: make sure Media Capture is running (the Capture button should say \"Capturing…\"), and that STOCK has been set.",
+            "AUTO SCENES doesn't seem to react: make sure Media Capture is running (the Capture button should say \"Captured\"), and that STOCK has been set.",
             "Nothing shows in PREVIEW or PROGRAM: make sure the camera has been Started and, for the media side, that Capture is running.",
             "Zoom doesn't list \"KH Video Switcher\" as a camera option: see \"Sending Your Feed to Zoom\" above — this usually means the app was installed without administrator rights, so the virtual camera was never registered.",
             "A picture looks off-center in OTS: adjust Shift Camera for OTS and the OTS Shift Amount slider in Settings so the camera framing leaves room for the picture box.",

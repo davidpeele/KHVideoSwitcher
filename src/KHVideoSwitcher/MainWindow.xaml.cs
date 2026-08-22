@@ -63,8 +63,6 @@ public partial class MainWindow : Window
         stateRun.Text = resolved ? resolvedText : attentionText;
     }
 
-    private const long MediaStaleMs = 1500;
-
     private readonly CameraCaptureService _camera = new();
     private readonly DisplayCaptureService _display = new();
     private readonly MediaStateDetector _detector = new();
@@ -303,15 +301,22 @@ public partial class MainWindow : Window
         if (_display.IsRunning)
         {
             _display.PumpFrames();
-            if (_display.LastFrameAgeMs <= MediaStaleMs &&
-                _display.TryCopyLatestFrame(ref _mediaFrame, out var mw, out var mh))
+            // Windows Graphics Capture only delivers a frame when the desktop
+            // actually recomposites the captured surface — a static picture
+            // (e.g. JW Library's year text with no motion) can legitimately go
+            // minutes without a new frame, for both window and monitor
+            // targets. So "no recent frame" is not staleness; only "no frame
+            // ever" (nothing captured yet) or a minimized window (which WGC
+            // genuinely stops updating) means there's no feed to show.
+            bool mediaFresh = _display.LastFrameAgeMs != long.MaxValue && !_display.IsTargetMinimized;
+            if (mediaFresh && _display.TryCopyLatestFrame(ref _mediaFrame, out var mw, out var mh))
             {
                 _compositor.SetMediaFrame(_mediaFrame, mw, mh);
                 mediaState = _detector.Analyze(_mediaFrame, mw, mh);
             }
             else
             {
-                if (_display.LastFrameAgeMs > MediaStaleMs)
+                if (!mediaFresh)
                     _compositor.ClearMedia();
                 mediaState = _detector.AnalyzeNoFeed();
             }
@@ -508,7 +513,7 @@ public partial class MainWindow : Window
             else if (MediaCombo.SelectedItem is CaptureTarget target)
             {
                 _display.Start(target);
-                MediaCaptureButton.Content = "Capturing…";
+                MediaCaptureButton.Content = "Captured";
                 MediaCombo.IsEnabled = false;
                 StatusText.Text = $"Capturing: {target.Name}";
                 _settings.LastMediaTargetName = target.Name;
@@ -1083,9 +1088,10 @@ public partial class MainWindow : Window
             {
                 program = _programScene;
             }
+            bool mediaNoFeed = _display.LastFrameAgeMs == long.MaxValue || _display.IsTargetMinimized;
             var media = !_display.IsRunning ? "off"
                 : _display.LastError is not null ? $"ERROR — {_display.LastError}"
-                : _display.LastFrameAgeMs > MediaStaleMs ? "no frames (is the window minimized?)"
+                : mediaNoFeed ? (_display.IsTargetMinimized ? "no frames (window is minimized)" : "no frames yet")
                 : $"{_display.Width}x{_display.Height}";
             var detect = _display.IsRunning
                 ? $"   |   detect: {_detector.State}{(_settings.AutoScenes ? " → AUTO" : "")}"
