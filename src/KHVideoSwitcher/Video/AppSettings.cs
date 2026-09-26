@@ -36,6 +36,15 @@ public sealed class AppSettings
     /// <summary>Last used audio input device for the level meter, restored at startup.</summary>
     public string? LastAudioDeviceName { get; set; }
 
+    /// <summary>When false, the toolbar audio meter (and its device picker) is hidden.</summary>
+    public bool ShowAudioMeter { get; set; } = true;
+
+    /// <summary>
+    /// Calibration offset (dB) added to the raw peak reading before it's displayed -
+    /// lets the operator dial the meter back if a hot line-in pegs it during normal speech.
+    /// </summary>
+    public double AudioMeterGainDb { get; set; }
+
     /// <summary>Over-the-shoulder inset: media box width as a fraction of the frame.</summary>
     public double OtsInsetWidthFraction { get; set; } = 0.42;
 
@@ -55,6 +64,18 @@ public sealed class AppSettings
 
     /// <summary>How far OVER-THE-SHOULDER shifts the camera left, as a fraction of the frame width.</summary>
     public double OtsShiftFraction { get; set; } = 0.05;
+
+    /// <summary>
+    /// Fill color (hex, e.g. "#000000") for the space revealed off-camera when OVER-THE-SHOULDER
+    /// shifts the frame. Defaults to black, matching the previous hardcoded behavior.
+    /// </summary>
+    public string OtsBackgroundColor { get; set; } = "#000000";
+
+    /// <summary>When true, draws a thin outline around the OTS media inset box.</summary>
+    public bool OtsBorderEnabled { get; set; }
+
+    /// <summary>Outline color (hex) for the OTS media inset box.</summary>
+    public string OtsBorderColor { get; set; } = "#000000";
 
     /// <summary>Ask Windows not to draw the capture highlight border (applies when capture starts).</summary>
     public bool HideCaptureBorder { get; set; } = true;

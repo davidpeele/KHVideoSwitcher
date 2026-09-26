@@ -249,38 +249,40 @@ public partial class HelpWindow : Window
         Tip("The three things this app does", "1) Takes your webcam and lets you frame and smoothly switch shots. 2) Watches JW Library and can automatically bring video/pictures on screen. 3) Sends the finished picture into Zoom as if it were a webcam, called \"KH Video Switcher\".");
 
         Section("Quick Start (First Time on a Computer)");
-        Body("Do this once per computer. After that, meeting-day startup is just: open the app → Start → Capture → Virtual Camera on.");
+        Body("Do this once per computer. After that, meeting-day startup is just: open the app → Capture Camera → Capture Screen → Virtual Camera on.");
         Steps(
-            "Open KH Video Switcher, choose your webcam in the camera list (top-left), and click Start.",
-            "Open the Media dropdown (next to it) and choose the JW Library window or the monitor/screen that shows JW Library, then click Capture.",
+            "Open KH Video Switcher, choose your webcam in the camera list (top-left), and click Capture Camera.",
+            "Open the Media dropdown (next to it) and choose the JW Library window or the monitor/screen that shows JW Library, then click Capture Screen.",
             "With JW Library showing its normal starting screen (the yeartext, i.e. \"nothing playing\"), click the STOCK tag in the status row. This teaches the app to recognize \"nothing is on\" so it doesn't confuse it with a picture. The STOCK tag has a dashed outline until you do this — that's your reminder.",
             "Frame a shot or two in the PREVIEW pane (drag to pan, scroll wheel or the ZOOM slider to zoom in), then right-click a preset button to save it. Save a couple of go-to shots (e.g. a wide platform shot, a closer shot on the speaker).",
             "Click Virtual Camera to turn it on, then in Zoom's video settings choose the camera named \"KH Video Switcher\" instead of your webcam.",
             "Optional but recommended: press F4 to turn on AUTO SCENES so the app switches to video/pictures automatically when JW Library plays them.");
-        Tip("You only have to do this once", "The app remembers your camera, your capture source, your presets, and the stock screen fingerprint. Next time you just open the app and click through Start / Capture / Virtual Camera.");
+        Tip("You only have to do this once", "The app remembers your camera, your capture source, your presets, and the stock screen fingerprint. Next time you just open the app and click through Capture Camera / Capture Screen / Virtual Camera.");
 
         Section("Meeting Day Checklist");
         Bullets(
             "Open KH Video Switcher.",
-            "Click Start (camera) and Capture (JW Library) if they aren't already running.",
+            "Click Capture Camera and Capture Screen (JW Library) if they aren't already running — each turns blue and relabels itself (\"Camera Captured\" / \"Screen Captured\") once it's on.",
             "Turn on Virtual Camera, and make sure Zoom is using \"KH Video Switcher\" as its camera.",
             "Check the status row: AUTO SCENES on if you want automatic switching, STOCK should already show a fingerprint from setup.",
             "Recall your saved presets (keys 1–6) to check framing still looks right, then start the meeting on CAM.");
 
         Section("The Toolbar");
         Body("The row along the very top controls your two video sources and the app's own output.");
-        Sub("Camera dropdown + Start");
-        Body("Pick which physical camera feeds the app. Start begins reading from it; the button changes to Stop while running. You must Start the camera before anything appears in PREVIEW or PROGRAM.");
-        Sub("Media dropdown + Capture");
-        Body("Pick the window or screen that shows JW Library, then click Capture to begin watching it. This is how the app \"sees\" videos, pictures, and songs that JW Library displays, so it can show them to your viewers and (if AUTO SCENES is on) recognize what's currently on screen.");
+        Sub("Camera dropdown + Capture Camera");
+        Body("Pick which physical camera feeds the app. Capture Camera begins reading from it, turns blue, and relabels itself \"Camera Captured\" while running — click it again to stop. You must capture the camera before anything appears in PREVIEW or PROGRAM.");
+        Sub("Media dropdown + Capture Screen");
+        Body("Pick the window or screen that shows JW Library, then click Capture Screen to begin watching it — it turns blue and relabels itself \"Screen Captured\" while running. This is how the app \"sees\" videos, pictures, and songs that JW Library displays, so it can show them to your viewers and (if AUTO SCENES is on) recognize what's currently on screen.");
         Sub("Virtual Camera");
         Body("Turns the app's finished picture (PROGRAM) into a camera that other apps can use — most importantly Zoom. See \"Sending Your Feed to Zoom\" below for the full walkthrough.");
         Sub("Settings");
-        Body("Opens a separate window with adjustable options: crossfade timing, the size and position of the over-the-shoulder picture box, and a few toggles. Covered in detail in the Settings section below.");
+        Body("Opens a separate window with adjustable options: crossfade timing, the size and position of the over-the-shoulder picture box, the audio input to watch and its meter calibration, and a few toggles. Covered in detail in the Settings section below.");
         Sub("Compact");
         Body("Hides the PREVIEW pane so only PROGRAM (what viewers see) is shown, for a smaller window footprint. Handy on a small screen. Press F11 to toggle it either way.");
-        Sub("Audio dropdown + level meter");
-        Body("Pick the audio input you want to keep an eye on — typically the line-in the sound booth amplifier feeds into the PC — and the two small bars beside it show its level in real time, just like the input meters in OBS. This is a visual reference only: the app doesn't record, forward, or mix that audio anywhere, so it has no effect on what Zoom hears. It's there so you can glance over and confirm the amplifier is dialed in at a healthy level (comfortably in the green, not pinned in the red) without needing OBS running alongside it.");
+
+        Section("The Audio Meter");
+        Body("Below PROGRAM, spanning its width, are two bars showing the level of one audio input in real time — just like the input meters in OBS. This is a visual reference only: the app doesn't record, forward, or mix that audio anywhere, so it has no effect on what Zoom hears. It's there so you can glance over and confirm the sound booth amplifier is dialed in at a healthy level (comfortably in the green, not pinned in the red) without needing OBS running alongside it.");
+        Body("Pick which input to watch — typically the line-in the amplifier feeds into the PC — from AUDIO INPUT DEVICE in Settings; you'll normally only do this once. If a hot input pegs the meter during normal speech, pull AUDIO METER GAIN down a few dB in Settings until it settles mostly in the green. SHOW AUDIO METER in Settings hides the whole meter if you don't need it.");
 
         Section("Status Tags");
         Body("The row of small labeled tags just under the toolbar shows, at a glance, whether each feature is on or off. A solid filled tag means ON / engaged; an outlined tag means OFF / idle. Every tag is also a button — click it to toggle that feature directly, without opening Settings.");
@@ -346,6 +348,16 @@ public partial class HelpWindow : Window
         Body("When on, the camera framing shifts slightly left while OTS is showing, so the picture box in the corner doesn't cover the subject. The shift amount slider controls how far.");
         Sub("Always Full Screen First");
         Body("When on, AUTO SCENES sends both videos and still pictures to full-screen MEDIA (instead of boxing stills into the smaller OTS corner). Turn this on if your hall prefers pictures and slides to always fill the whole screen first, with over-the-shoulder used only when you switch to it by hand (OTS / F3). This only affects automatic switching — you can always choose OTS manually regardless of this setting.");
+        Sub("OTS Background Color");
+        Body("The fill color for the space revealed off-camera when Shift Camera for OTS slides the frame left. Pick one of the swatches (Black, Off-White, Beige, White, Gray) or dial in an exact color with the R/G/B sliders underneath — the preview box shows the current color. Defaults to black, the previous fixed behavior.");
+        Sub("OTS Border");
+        Body("Turn on Show Border to draw a thin outline around the OTS picture-in-picture box, in whatever color you pick below it (same swatches and R/G/B sliders as the background). A border in the same color as your chosen background can make the inset box read as intentional rather than a floating rectangle.");
+        Sub("Audio Input Device");
+        Body("Which audio input the meter watches — typically the line-in the sound booth amplifier feeds into the PC. You'll normally only set this once; the app remembers it. See \"The Audio Meter\" above for what the meter itself shows.");
+        Sub("Show Audio Meter");
+        Body("Shows or hides the audio meter below PROGRAM. Turn it off if you don't need it — it doesn't affect anything Zoom hears either way.");
+        Sub("Audio Meter Gain");
+        Body("A calibration offset, in dB, added to the meter's raw reading before it's displayed. If a hot input pegs the meter red during normal speech, pull this down a few dB until it settles mostly in the green. This only changes what the meter shows — it doesn't touch the actual audio level Zoom or anything else hears.");
         Sub("Check for Updates");
         Body("Checks whether a newer version of KH Video Switcher is available and, if so, lets you download and install it.");
 
@@ -390,7 +402,7 @@ public partial class HelpWindow : Window
             "Press TAKE right as they begin speaking for a smooth, professional-looking crossfade.");
         Sub("Getting the room ready before anyone arrives");
         Steps(
-            "Open the app, Start the camera, Capture JW Library.",
+            "Open the app, Capture Camera, Capture Screen for JW Library.",
             "Recall each saved preset in turn to confirm framing still looks right (camera position sometimes shifts slightly if it was bumped).",
             "Turn on Virtual Camera and confirm Zoom shows a live picture from \"KH Video Switcher\".",
             "Turn on AUTO SCENES if you plan to rely on it, and leave STOCK as previously set — no need to redo it unless JW Library's start screen has changed.");
@@ -398,8 +410,8 @@ public partial class HelpWindow : Window
         Section("Troubleshooting & Tips");
         Bullets(
             "STOCK tag shows a dashed outline / \"NOT SET\": click it while JW Library shows its plain yeartext screen — needed once per computer for AUTO SCENES to work reliably.",
-            "AUTO SCENES doesn't seem to react: make sure Media Capture is running (the Capture button should say \"Captured\"), and that STOCK has been set.",
-            "Nothing shows in PREVIEW or PROGRAM: make sure the camera has been Started and, for the media side, that Capture is running.",
+            "AUTO SCENES doesn't seem to react: make sure Media Capture is running (the Capture Screen button should be blue and say \"Screen Captured\"), and that STOCK has been set.",
+            "Nothing shows in PREVIEW or PROGRAM: make sure Capture Camera and Capture Screen are both on (blue, saying \"Camera Captured\" / \"Screen Captured\").",
             "Zoom doesn't list \"KH Video Switcher\" as a camera option: see \"Sending Your Feed to Zoom\" above — this usually means the app was installed without administrator rights, so the virtual camera was never registered.",
             "A picture looks off-center in OTS: adjust Shift Camera for OTS and the OTS Shift Amount slider in Settings so the camera framing leaves room for the picture box.",
             "Want pictures to always fill the whole screen instead of a small box: turn on Always Full Screen First in Settings.");

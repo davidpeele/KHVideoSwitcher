@@ -35,6 +35,17 @@ public sealed class PtzCompositor : IDisposable
     /// <summary>How far to shift, as a fraction of the output width. Settable at runtime (Settings window).</summary>
     public double InsetShiftFraction { get; set; } = 0.05;
 
+    /// <summary>Fill color (0..1 linear RGB) for the space revealed off-camera when the frame shifts for the inset.</summary>
+    public (float R, float G, float B) BackgroundColor { get; set; } = (0f, 0f, 0f);
+
+    /// <summary>When true, draws a thin outline around the OTS media inset box.</summary>
+    public bool BorderEnabled { get; set; }
+
+    /// <summary>Outline color (0..1 linear RGB) for the OTS media inset box.</summary>
+    public (float R, float G, float B) BorderColor { get; set; } = (0f, 0f, 0f);
+
+    private const float InsetBorderThicknessPx = 3f;
+
     private readonly object _outputLock = new();
     private readonly byte[] _output = new byte[OutBytes];
     private readonly byte[] _previewOutput = new byte[OutBytes];
@@ -123,7 +134,7 @@ public sealed class PtzCompositor : IDisposable
             return;
 
         _rt!.BeginDraw();
-        _rt.Clear(new _D3DCOLORVALUE(1, 0, 0, 0));
+        _rt.Clear(new _D3DCOLORVALUE(1, BackgroundColor.R, BackgroundColor.G, BackgroundColor.B));
         DrawScene(program, 1f);
         if (transition is not null)
             DrawScene(transition.To, (float)transition.EasedProgress);
@@ -139,7 +150,7 @@ public sealed class PtzCompositor : IDisposable
             return;
 
         _rt!.BeginDraw();
-        _rt.Clear(new _D3DCOLORVALUE(1, 0, 0, 0));
+        _rt.Clear(new _D3DCOLORVALUE(1, BackgroundColor.R, BackgroundColor.G, BackgroundColor.B));
         DrawScene(scene, 1f);
         _rt!.Object.EndDraw(0, 0).ThrowOnError();
 
@@ -190,7 +201,10 @@ public sealed class PtzCompositor : IDisposable
                 float h = w * 9f / 16f;
                 float x = (float)(OutWidth - w - InsetMarginRight);
                 float y = (float)InsetMarginTop;
-                DrawMedia(new D2D_RECT_F(x, y, x + w, y + h), opacity);
+                var insetRect = new D2D_RECT_F(x, y, x + w, y + h);
+                DrawMedia(insetRect, opacity);
+                if (BorderEnabled)
+                    DrawInsetBorder(insetRect, opacity);
                 break;
             }
         }
@@ -262,6 +276,17 @@ public sealed class PtzCompositor : IDisposable
         var src = new D2D_RECT_F(sx, sy, sx + (float)cropW, sy + (float)cropH);
         _rt!.Object.DrawBitmap(_mediaBitmap.Object, (nint)(&dest), opacity,
             D2D1_BITMAP_INTERPOLATION_MODE.D2D1_BITMAP_INTERPOLATION_MODE_LINEAR, (nint)(&src));
+    }
+
+    /// <summary>Thin outline around the OTS media inset box, in <see cref="BorderColor"/>.</summary>
+    private void DrawInsetBorder(D2D_RECT_F rect, float opacity)
+    {
+        using var brush = _rt!.CreateSolidColorBrush(new _D3DCOLORVALUE(opacity, BorderColor.R, BorderColor.G, BorderColor.B));
+        // Inset the stroke rect by half the stroke width so the line hugs the media
+        // edge rather than bleeding half its width outside the inset box.
+        var half = InsetBorderThicknessPx / 2f;
+        var strokeRect = new D2D_RECT_F(rect.left + half, rect.top + half, rect.right - half, rect.bottom - half);
+        _rt!.Object.DrawRectangle(ref strokeRect, brush.Object, InsetBorderThicknessPx, null);
     }
 
     /// <summary>Copies the latest program frame (BGRA 1920x1080) to <paramref name="dest"/>.</summary>

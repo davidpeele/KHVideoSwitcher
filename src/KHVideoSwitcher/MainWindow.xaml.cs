@@ -43,6 +43,25 @@ public partial class MainWindow : Window
         stateRun.Text = on ? "ON" : "OFF";
     }
 
+    /// <summary>Same engaged/idle fill-vs-outline rule as <see cref="ApplyEngagedStyle"/>, for a
+    /// plain-content toggle button (Capture Camera / Capture Screen) whose text isn't a fixed ON/OFF Run.</summary>
+    private static void ApplyEngagedButtonStyle(Button button, bool on)
+    {
+        if (on)
+        {
+            var accent = Res("AccentBrush");
+            button.Background = accent;
+            button.Foreground = Res("BgBrush");
+            button.BorderBrush = accent;
+        }
+        else
+        {
+            button.Background = Brushes.Transparent;
+            button.Foreground = Res("TextBrush");
+            button.BorderBrush = Res("DividerBrush");
+        }
+    }
+
     /// <summary>Applies the "needs attention" dashed-outline rule (Set Stock).</summary>
     private static void ApplyAttentionStyle(Button tag, Run stateRun, bool resolved, string resolvedText, string attentionText)
     {
@@ -415,7 +434,8 @@ public partial class MainWindow : Window
                 StopComposeLoop();
                 await _camera.StopAsync();
                 _statusTimer.Stop();
-                StartStopButton.Content = "Start";
+                StartStopButton.Content = "Capture Camera";
+                ApplyEngagedButtonStyle(StartStopButton, on: false);
                 CameraCombo.IsEnabled = true;
                 StatusText.Text = "Stopped.";
                 AppLog.Info("Camera stopped.");
@@ -431,7 +451,8 @@ public partial class MainWindow : Window
                 ProgramImage.Source = _programBitmap;
                 _lastFrameCount = 0;
                 _statusTimer.Start();
-                StartStopButton.Content = "Stop";
+                StartStopButton.Content = "Camera Captured";
+                ApplyEngagedButtonStyle(StartStopButton, on: true);
                 CameraCombo.IsEnabled = false;
                 StatusText.Text = $"{cam.Name} — {format}";
                 UpdateCropOverlay();
@@ -517,23 +538,25 @@ public partial class MainWindow : Window
             if (_display.IsRunning)
             {
                 _display.Stop();
-                MediaCaptureButton.Content = "Capture";
+                MediaCaptureButton.Content = "Capture Screen";
+                ApplyEngagedButtonStyle(MediaCaptureButton, on: false);
                 MediaCombo.IsEnabled = true;
                 AppLog.Info("Media capture stopped.");
             }
             else if (!_camera.IsRunning)
             {
                 // PumpFrames() only runs on the compose thread, which the camera
-                // Start button spins up. Without it, a capture session opens but
+                // Capture Camera button spins up. Without it, a capture session opens but
                 // never delivers a visible frame — indistinguishable from broken
                 // to the user, so refuse up front instead of leaving them staring
                 // at a black Media preview with no clue why.
-                StatusText.Text = "Start the camera first (top-left Start button) — Capture needs it running to show anything.";
+                StatusText.Text = "Capture the camera first (top-left Capture Camera button) — Capture Screen needs it running to show anything.";
             }
             else if (MediaCombo.SelectedItem is CaptureTarget target)
             {
                 _display.Start(target);
-                MediaCaptureButton.Content = "Captured";
+                MediaCaptureButton.Content = "Screen Captured";
+                ApplyEngagedButtonStyle(MediaCaptureButton, on: true);
                 MediaCombo.IsEnabled = false;
                 StatusText.Text = $"Capturing: {target.Name}";
                 _settings.LastMediaTargetName = target.Name;
@@ -615,7 +638,7 @@ public partial class MainWindow : Window
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        new SettingsWindow(_settings, ApplySettings) { Owner = this }.Show();
+        new SettingsWindow(_settings, ApplySettings, SetAudioDeviceAsync) { Owner = this }.Show();
     }
 
     private void ReportBugButton_Click(object sender, RoutedEventArgs e)
@@ -651,8 +674,19 @@ public partial class MainWindow : Window
         _compositor.InsetMarginRight = _settings.OtsInsetRightMargin;
         _compositor.ShiftCameraForInset = _settings.OtsShiftCameraForInset;
         _compositor.InsetShiftFraction = _settings.OtsShiftFraction;
+        _compositor.BackgroundColor = ParseColor(_settings.OtsBackgroundColor);
+        _compositor.BorderEnabled = _settings.OtsBorderEnabled;
+        _compositor.BorderColor = ParseColor(_settings.OtsBorderColor);
         _display.HideBorder = _settings.HideCaptureBorder;
+        ApplyAudioMeterVisibility();
         _settings.Save();
+    }
+
+    /// <summary>Parses a "#RRGGBB" (or named/short) color into 0..1 linear RGB components for Direct2D.</summary>
+    private static (float R, float G, float B) ParseColor(string hex)
+    {
+        var c = (Color)ColorConverter.ConvertFromString(hex);
+        return (c.R / 255f, c.G / 255f, c.B / 255f);
     }
 
     private bool _compact;
@@ -682,9 +716,13 @@ public partial class MainWindow : Window
 
         double paneW = _compact ? gridW : Math.Max(120, (gridW - 14) / 2);
         double videoW = paneW - 2; // border
+        // Preview and Program each carry a row below the video (ZoomBar / the audio meter)
+        // of different heights - budget for whichever is taller so neither one runs the
+        // window out of vertical space.
+        double belowVideoH = Math.Max(ZoomBar.ActualHeight, AudioMeterPane.ActualHeight);
         double budget = RootGrid.ActualHeight - ToolbarPanel.ActualHeight - StatusRailPanel.ActualHeight
                         - TransportPanel.ActualHeight - PresetsPanel.ActualHeight - StatusText.ActualHeight
-                        - ZoomBar.ActualHeight - 60;
+                        - belowVideoH - 60;
         double h = Math.Min(videoW * 9.0 / 16 + 4, Math.Max(150, budget));
         PreviewBorder.Height = h;
         ProgramBorder.Height = h;

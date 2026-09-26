@@ -26,20 +26,6 @@
          since WPF Run has no per-run opacity to fade relative to its parent. -->
     <SolidColorBrush x:Key="MutedOnAccentBrush" Color="#B3F2F2F3"/>
 
-    <!-- Audio level meter: a fixed-position 3-zone gradient painted across the
-         meter's full pixel width (MappingMode=Absolute), so the color at a given
-         point always means the same dB regardless of how full the bar currently
-         is - green/yellow/red bands stay put, matching a standard VU meter. Track
-         width here (160px) must match MainWindow.Audio.cs's MeterTrackWidth. -->
-    <LinearGradientBrush x:Key="MeterGradientBrush" StartPoint="0,0" EndPoint="160,0" MappingMode="Absolute">
-        <GradientStop Color="#4C9F70" Offset="0"/>
-        <GradientStop Color="#4C9F70" Offset="0.80"/>
-        <GradientStop Color="#D9A63C" Offset="0.80"/>
-        <GradientStop Color="#D9A63C" Offset="0.95"/>
-        <GradientStop Color="#C1544B" Offset="0.95"/>
-        <GradientStop Color="#C1544B" Offset="1"/>
-    </LinearGradientBrush>
-
     <!-- Fonts embedded from Fonts\*.ttf (Google Fonts, SIL OFL - see Fonts\OFL.txt).
          Only the weights the design actually uses: Barlow 400 for body/captions,
          Barlow Condensed SemiBold (600) for all headings/buttons/tags, Barlow
@@ -98,6 +84,31 @@
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.4"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Small square color-preset swatch (OTS background/border pickers in Settings).
+         Background is set per-instance to the preset color; this style supplies only
+         the shape and hover highlight. -->
+    <Style x:Key="ColorSwatchStyle" TargetType="Button">
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Height" Value="28"/>
+        <Setter Property="BorderBrush" Value="{StaticResource DividerBrush}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"/>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -286,6 +297,55 @@
     <!-- Vertical variant for the (now-unused-by-default but kept available) vertical slider case. -->
     <Style x:Key="AccentSliderVerticalStyle" TargetType="Slider" BasedOn="{StaticResource AccentSliderStyle}">
         <Setter Property="Orientation" Value="Vertical"/>
+    </Style>
+
+    <!-- ZOOM slider (below PREVIEW): a taller thumb so it reads at a glance next to the
+         audio meter bars below PROGRAM (39px = the meter's two 18px bars + 3px gap). -->
+    <Style x:Key="ZoomSliderThumbStyle" TargetType="Thumb">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border Background="{StaticResource AccentBrush}" Width="14" Height="39"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ZoomSliderStyle" TargetType="Slider">
+        <Setter Property="Height" Value="39"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Slider">
+                    <Grid VerticalAlignment="Center">
+                        <Border Height="3" Background="{StaticResource DividerBrush}" VerticalAlignment="Center"/>
+                        <Track x:Name="PART_Track">
+                            <Track.DecreaseRepeatButton>
+                                <RepeatButton Command="Slider.DecreaseLarge" Background="{StaticResource AccentBrush}"
+                                              Height="3" BorderThickness="0">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="{StaticResource AccentBrush}" Height="3"/>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.DecreaseRepeatButton>
+                            <Track.IncreaseRepeatButton>
+                                <RepeatButton Command="Slider.IncreaseLarge" Background="Transparent" BorderThickness="0">
+                                    <RepeatButton.Template>
+                                        <ControlTemplate TargetType="RepeatButton">
+                                            <Border Background="Transparent" Height="3"/>
+                                        </ControlTemplate>
+                                    </RepeatButton.Template>
+                                </RepeatButton>
+                            </Track.IncreaseRepeatButton>
+                            <Track.Thumb>
+                                <Thumb Style="{StaticResource ZoomSliderThumbStyle}"/>
+                            </Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
 </ResourceDictionary>
