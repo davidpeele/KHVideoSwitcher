@@ -279,6 +279,8 @@ public partial class HelpWindow : Window
         Body("Opens a separate window with adjustable options: crossfade timing, the size and position of the over-the-shoulder picture box, and a few toggles. Covered in detail in the Settings section below.");
         Sub("Compact");
         Body("Hides the PREVIEW pane so only PROGRAM (what viewers see) is shown, for a smaller window footprint. Handy on a small screen. Press F11 to toggle it either way.");
+        Sub("Audio dropdown + level meter");
+        Body("Pick the audio input you want to keep an eye on — typically the line-in the sound booth amplifier feeds into the PC — and the two small bars beside it show its level in real time, just like the input meters in OBS. This is a visual reference only: the app doesn't record, forward, or mix that audio anywhere, so it has no effect on what Zoom hears. It's there so you can glance over and confirm the amplifier is dialed in at a healthy level (comfortably in the green, not pinned in the red) without needing OBS running alongside it.");
 
         Section("Status Tags");
         Body("The row of small labeled tags just under the toolbar shows, at a glance, whether each feature is on or off. A solid filled tag means ON / engaged; an outlined tag means OFF / idle. Every tag is also a button — click it to toggle that feature directly, without opening Settings.");

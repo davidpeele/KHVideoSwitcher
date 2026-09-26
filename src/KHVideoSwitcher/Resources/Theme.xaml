@@ -26,6 +26,20 @@
          since WPF Run has no per-run opacity to fade relative to its parent. -->
     <SolidColorBrush x:Key="MutedOnAccentBrush" Color="#B3F2F2F3"/>
 
+    <!-- Audio level meter: a fixed-position 3-zone gradient painted across the
+         meter's full pixel width (MappingMode=Absolute), so the color at a given
+         point always means the same dB regardless of how full the bar currently
+         is - green/yellow/red bands stay put, matching a standard VU meter. Track
+         width here (160px) must match MainWindow.Audio.cs's MeterTrackWidth. -->
+    <LinearGradientBrush x:Key="MeterGradientBrush" StartPoint="0,0" EndPoint="160,0" MappingMode="Absolute">
+        <GradientStop Color="#4C9F70" Offset="0"/>
+        <GradientStop Color="#4C9F70" Offset="0.80"/>
+        <GradientStop Color="#D9A63C" Offset="0.80"/>
+        <GradientStop Color="#D9A63C" Offset="0.95"/>
+        <GradientStop Color="#C1544B" Offset="0.95"/>
+        <GradientStop Color="#C1544B" Offset="1"/>
+    </LinearGradientBrush>
+
     <!-- Fonts embedded from Fonts\*.ttf (Google Fonts, SIL OFL - see Fonts\OFL.txt).
          Only the weights the design actually uses: Barlow 400 for body/captions,
          Barlow Condensed SemiBold (600) for all headings/buttons/tags, Barlow

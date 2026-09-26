@@ -144,6 +144,7 @@ public partial class MainWindow : Window
             ApplySettings();
             LayoutPanes();
             _ = CheckForUpdatesAsync(silent: true);
+            await InitializeAudioMeterAsync();
         }
         catch (Exception ex)
         {
@@ -1168,6 +1169,7 @@ public partial class MainWindow : Window
         await _camera.StopAsync();
         _display.Dispose();
         _compositor.Dispose();
+        await ShutdownAudioMeterAsync();
         base.OnClosed(e);
     }
 }

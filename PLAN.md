@@ -194,8 +194,10 @@ Each phase ends with something you can actually run and test at the Hall.
   the Hall displays (would let us add fades/branding on the in-room screens). Deliberately
   not in v1: it would make the app a single point of failure for the Hall displays, and
   it adds a frame or two of video delay relative to JW Library's audio.
-- Audio level meter / reminder (the virtual camera carries video only — Zoom takes the
-  microphone separately, same as with OBS today).
+- ~~Audio level meter~~ — done: a toolbar device picker plus a two-bar peak meter
+  (see MainWindow.Audio.cs / Audio/AudioLevelMeterService.cs). It's a visual reference
+  only, same as OBS's mixer bars — the virtual camera still carries video only, and
+  Zoom takes the microphone separately.
 
 ---
 

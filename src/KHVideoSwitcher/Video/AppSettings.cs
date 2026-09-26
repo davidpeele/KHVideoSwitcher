@@ -33,6 +33,9 @@ public sealed class AppSettings
     public string? LastCameraName { get; set; }
     public string? LastMediaTargetName { get; set; }
 
+    /// <summary>Last used audio input device for the level meter, restored at startup.</summary>
+    public string? LastAudioDeviceName { get; set; }
+
     /// <summary>Over-the-shoulder inset: media box width as a fraction of the frame.</summary>
     public double OtsInsetWidthFraction { get; set; } = 0.42;
 
