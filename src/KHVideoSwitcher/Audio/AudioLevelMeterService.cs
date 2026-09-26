@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using Windows.Devices.Enumeration;
-using Windows.Media;
 using Windows.Media.Audio;
+using Windows.Media.Capture;
 using Windows.Media.Render;
 using WinRT;
 
