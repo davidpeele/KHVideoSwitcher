@@ -1,4 +1,14 @@
-# KH Video Switcher
+<p align="center">
+  <img src="assets/icon-256.png" alt="KH Video Switcher icon" width="128" height="128">
+</p>
+
+<h1 align="center">KH Video Switcher</h1>
+
+<p align="center">
+  <a href="../../releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/davidpeele/KHVideoSwitcher"></a>
+  <img alt="Windows 11" src="https://img.shields.io/badge/Windows-11-0078D4">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/davidpeele/KHVideoSwitcher"></a>
+</p>
 
 A free, single-purpose video switcher for streaming Kingdom Hall meetings over
 Zoom (or any app that accepts a webcam) — built to replace an OBS setup with
@@ -11,8 +21,10 @@ something meeting operators can run with a few clicks.
   crossfade to it with TAKE — viewers never see the framing happen. Six
   one-click presets store complete shots.
 - **Scenes** — camera (CAM), fullscreen media (MEDIA), and over-the-shoulder
-  (OTS: camera behind, media boxed top-right; box size and borders adjustable
-  in Settings).
+  (OTS: camera behind, media boxed top-right). In Settings you can size the
+  box, add a thin border in any color, and optionally shift the camera left so
+  the box doesn't cover the speaker — with a choice of background color for
+  the space that reveals.
 - **JW Library aware** — captures the media window/display and detects whether
   a video is playing, a still image is up, or the yeartext screen is showing.
   With AUTO on, it switches scenes for you: video → MEDIA, still → OTS,
@@ -20,9 +32,22 @@ something meeting operators can run with a few clicks.
   taken manually with one tap of MEDIA (F2) and held automatically after that.
   An **Always Full Screen First** setting sends stills to full-screen MEDIA
   too, for halls that don't want the smaller over-the-shoulder box.
+- **Audio meter** — a color-coded level meter under PROGRAM shows the sound
+  booth's line-in at a glance (with a dB scale and per-channel readouts), so
+  you can confirm levels without OBS open. It's a visual reference only — Zoom
+  still takes its audio directly. Input device and gain calibration are in
+  Settings.
 - **Built-in Help** — a Help button opens a plain-English user guide in its
   own window, with jump-to-section navigation, that stays open alongside the
   app while you run a meeting.
+- **Keeps itself up to date** — checks for a new release once a day and shows
+  an **UPDATE** tag when one is available (or use **Check for Updates** in
+  Settings). Nothing downloads until you click it, and the installer is
+  verified against the release's published checksum before it runs.
+- **Report Bug** — gathers the app version, device names, and a recent
+  activity log (with your Windows username stripped out) into a report you can
+  read and edit, then copy or open as a prefilled GitHub issue. Nothing is
+  ever sent automatically.
 
 ## Requirements
 
@@ -88,7 +113,7 @@ by either install or uninstall.
 > page — that check is meaningful whether or not Windows complains:
 >
 > ```powershell
-> Get-FileHash .\KHVideoSwitcher-Setup-1.3.0.exe -Algorithm SHA256
+> Get-FileHash .\KHVideoSwitcher-Setup-X.Y.Z.exe -Algorithm SHA256
 > ```
 >
 > The full source is in this repository and the release scripts build the
@@ -124,21 +149,25 @@ the release page.
 
 ## First-time setup (once per machine)
 
-1. Launch **KH Video Switcher**, pick your camera, click **Start**.
-2. Open the **Media** dropdown, pick the JW Library media window (or the
-   monitor that shows media), click **Capture**.
-3. With JW Library showing its normal yeartext/no-media screen, click
-   **Set Stock** — this teaches the app what "nothing is playing" looks like.
-   (The button glows amber whenever this step is needed.)
+1. Launch **KH Video Switcher**, pick your camera, click **Capture Camera**.
+2. Pick the JW Library media window (or the monitor that shows media) from
+   the second dropdown, click **Capture Screen**. Both buttons turn blue while
+   capturing.
+3. With JW Library showing its normal yeartext/no-media screen, click the
+   **STOCK · NOT SET** tag under the toolbar — this teaches the app what
+   "nothing is playing" looks like. (The tag is dashed whenever this step is
+   needed.)
 4. Frame your shots in PREVIEW and save presets: line up a shot, right-click a
    preset button (or Ctrl+1…6). Presets store the scene too — e.g. an
    over-the-shoulder with the speaker offset left.
-5. Click **Virtual Camera: Off** to turn it ON, then select
+5. Click **Virtual Camera** to turn it on, then select
    **"KH Video Switcher"** as the camera in Zoom.
-6. Optional: press **F4** to enable AUTO scene switching.
+6. Optional: open **Settings** to pick the audio input for the level meter.
+7. Optional: press **F4** to enable AUTO scene switching.
 
 Everything (devices, presets, stock screen, settings) is remembered, so
-meeting-day startup is: open app → Start → Capture → Virtual Camera ON.
+meeting-day startup is: open app → Capture Camera → Capture Screen → Virtual
+Camera on.
 
 ## Operator quick reference
 
@@ -170,8 +199,10 @@ scripts\build-installer.ps1 -Version 1.2.3   # -> dist-installer\KHVideoSwitcher
 scripts\publish.ps1                          # -> dist\ (app + vcam + install.ps1)
 ```
 
-`scripts\release.ps1 -Version 1.2.3` builds, runs the self-tests, tags, and
-publishes a GitHub release in one step (see the script header for options).
+`scripts\release.ps1 -Version 1.2.3` runs a local build and the self-tests,
+then tags and pushes; GitHub Actions (`.github/workflows/release.yml`) builds
+the published installer, zip, and `SHA256SUMS.txt` from that tag. Per-version
+notes live in [`release-notes/`](release-notes).
 
 The virtual camera component must be registered from a location readable by
 Windows services — both install paths handle this (`C:\ProgramData`).

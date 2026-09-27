@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="KH Video Switcher" Height="820" Width="1400"
+        Title="KH Video Switcher" Icon="/Resources/KHVideoSwitcher.ico" Height="820" Width="1400"
         Background="{StaticResource BgBrush}" FontFamily="{StaticResource BodyFont}"
         PreviewKeyDown="Window_PreviewKeyDown">
     <Window.Resources>

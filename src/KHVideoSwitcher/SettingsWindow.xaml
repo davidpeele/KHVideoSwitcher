@@ -1,7 +1,7 @@
 <Window x:Class="KHVideoSwitcher.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="KH Video Switcher — Settings" Height="740" Width="520"
+        Title="KH Video Switcher — Settings" Icon="/Resources/KHVideoSwitcher.ico" Height="740" Width="520"
         Background="{StaticResource BgBrush}" FontFamily="{StaticResource BodyFont}"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
     <Window.Resources>
